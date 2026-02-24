@@ -15,25 +15,9 @@ const styles = {
     padding: '8px',
   },
   logo: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px',
-  },
-  logoClub: {
-    fontSize: '2rem',
-    fontWeight: 'bold',
-    color: '#e74c3c',
-  },
-  logoPenguin: {
-    fontSize: '2rem',
-    fontWeight: 'bold',
-    color: '#f1c40f',
-  },
-  logoBuilder: {
-    fontSize: '2rem',
-    fontWeight: 'bold',
-    color: '#2ecc71',
+    maxWidth: '300px',
+    width: '100%',
+    height: 'auto',
   },
   welcome: {
     fontSize: '1.1rem',
@@ -136,11 +120,7 @@ export default function MainMenu({ penguinName, onSelectCP }) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.logo}>
-        <span style={styles.logoClub}>Club</span>
-        <span style={styles.logoPenguin}>Penguin</span>
-        <span style={styles.logoBuilder}>Builder</span>
-      </div>
+      <img src="/logo.svg" alt="Club Penguin Builder" style={styles.logo} />
 
       <div style={styles.welcome}>Welcome, {penguinName}!</div>
 

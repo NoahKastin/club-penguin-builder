@@ -36,6 +36,11 @@ export default class Penguin {
   }
 
   moveTo(x, y) {
+    // Stop any existing tweens so they don't fight the new destination
+    this.scene.tweens.killTweensOf(this.sprite);
+    this.scene.tweens.killTweensOf(this.nameLabel);
+    this.scene.tweens.killTweensOf(this.bubble);
+
     const distance = Phaser.Math.Distance.Between(this.sprite.x, this.sprite.y, x, y);
     const duration = Math.max(200, distance * 3);
 
