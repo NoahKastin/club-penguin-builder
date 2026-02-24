@@ -12,8 +12,9 @@
 ## Next Up
 
 ### Room Editor
-- [ ] Dev UI to create/edit rooms (name, background color/image, dimensions)
+- [ ] Dev UI to create/edit rooms (name, dimensions)
 - [ ] Place exits visually (drag to position, set target room)
+- [ ] Exits hidden by default (uploaded items/backgrounds cover them)
 - [ ] Toggle: hidden room (penguins can't randomly spawn there)
 - [ ] Toggle: party planning enabled (decoration by devs with uploaded items)
 
@@ -23,7 +24,7 @@
 - [ ] AI guardrail for uploaded items (copyright check against Club Penguin Archive, block porn/living people/etc.)
 - [ ] Items can be free or paywalled
 - [ ] Uploaders can always use their own items
-- [ ] Bundle items into "games"
+- [ ] Bundle items into "games" (specific location configurations of items, e.g. beans placed into a Mancala board)
 
 ### Item Behaviors (per room)
 - [ ] Collectible by penguins (pins, colors/sprites, clothes, puffles, igloo furniture)
@@ -55,9 +56,13 @@
 - [ ] Environment-based config (port, CORS origin)
 - [ ] Consider a process manager (PM2) or container for reliability
 
+## Branding
+- [ ] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
+- [ ] Favicon: based on the "CPB" acronym from the logo
+
 ## Refinement Ideas (Current PoC)
 - [ ] Penguin sprites instead of emoji (customizable colors)
-- [ ] Room backgrounds (images instead of solid colors)
+- [ ] Room backgrounds via background-sized or resizable items (no special "room background" concept)
 - [ ] Penguin list / "who's here" sidebar
 - [ ] Sound effects
 - [ ] Mobile-friendly layout
