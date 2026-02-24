@@ -6,6 +6,7 @@
 - [x] Name entry on join
 - [x] Node.js + Express + Socket.io backend
 - [x] React + Phaser 3 frontend
+- [x] Chat log (scrollable history with join/leave notifications)
 
 ## Next Up
 
@@ -47,10 +48,15 @@
 - [ ] Funding model: devs/penguins fund traffic costs
 - [ ] Monetization: devs can paywall moderation features (party planning, external items, clothes memory, enforcement actions)
 
+## Deployment
+- [ ] Deploy to a hosting provider that supports Node.js + WebSockets (Railway, Render, Fly.io, or existing hosting)
+- [ ] Production build script (Vite builds frontend, Express serves it + runs Socket.io)
+- [ ] Environment-based config (port, CORS origin)
+- [ ] Consider a process manager (PM2) or container for reliability
+
 ## Refinement Ideas (Current PoC)
 - [ ] Penguin sprites instead of emoji (customizable colors)
 - [ ] Room backgrounds (images instead of solid colors)
-- [ ] Chat log (scrollable history, not just speech bubbles)
 - [ ] Penguin list / "who's here" sidebar
 - [ ] Sound effects
 - [ ] Mobile-friendly layout

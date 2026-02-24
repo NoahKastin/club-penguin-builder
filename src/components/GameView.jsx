@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import ChatLog from './ChatLog';
 import ChatInput from './ChatInput';
 import { createGame, destroyGame } from '../game/PhaserGame';
 import * as socket from '../network/socket';
@@ -27,6 +28,7 @@ export default function GameView({ penguinName }) {
   return (
     <div style={styles.wrapper}>
       <div ref={gameRef} />
+      <ChatLog />
       <ChatInput />
     </div>
   );

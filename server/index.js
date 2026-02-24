@@ -81,7 +81,7 @@ io.on('connection', (socket) => {
     const oldRoom = penguin.roomId;
 
     // Notify old room
-    broadcastToRoom(oldRoom, 'penguinLeft', { id: penguin.id }, socket.id);
+    broadcastToRoom(oldRoom, 'penguinLeft', { id: penguin.id, name: penguin.name }, socket.id);
 
     // Move penguin to new room
     changePenguinRoom(socket.id, roomId);
@@ -100,7 +100,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     const penguin = removePenguin(socket.id);
     if (penguin) {
-      broadcastToRoom(penguin.roomId, 'penguinLeft', { id: penguin.id });
+      broadcastToRoom(penguin.roomId, 'penguinLeft', { id: penguin.id, name: penguin.name });
     }
     console.log(`Disconnected: ${socket.id}`);
   });
