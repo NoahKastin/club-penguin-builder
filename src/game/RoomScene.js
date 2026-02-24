@@ -86,8 +86,19 @@ export default class RoomScene extends Phaser.Scene {
     socket.on('penguinMoved', this.onPenguinMoved);
     socket.on('chatMessage', this.onChatMessage);
 
+    // Clean up listeners when scene is destroyed
+    this.events.on('destroy', this.cleanup, this);
+
     // Signal that listeners are registered and it's safe to join
     socket.sceneReady();
+  }
+
+  cleanup() {
+    socket.off('roomState', this.onRoomState);
+    socket.off('penguinJoined', this.onPenguinJoined);
+    socket.off('penguinLeft', this.onPenguinLeft);
+    socket.off('penguinMoved', this.onPenguinMoved);
+    socket.off('chatMessage', this.onChatMessage);
   }
 
   loadRoom(room, penguinList) {

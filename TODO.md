@@ -57,6 +57,9 @@
 - [ ] Environment-based config (port, CORS origin)
 - [ ] Consider a process manager (PM2) or container for reliability
 
+## Main Menu
+- [ ] FAQ section: explain what "a Club Penguin" is and why this project is legal
+
 ## Branding
 - [ ] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
 - [ ] Favicon: based on the "CPB" acronym from the logo

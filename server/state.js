@@ -1,12 +1,11 @@
-import { SPAWN_ROOM } from './rooms.js';
-
 const penguins = new Map();
 
-export function addPenguin(socketId, name) {
+export function addPenguin(socketId, name, cpId, spawnRoom) {
   const penguin = {
     id: socketId,
     name,
-    roomId: SPAWN_ROOM,
+    cpId,
+    roomId: spawnRoom,
     x: 400,
     y: 350,
   };
@@ -43,10 +42,10 @@ export function changePenguinRoom(socketId, roomId) {
   return penguin;
 }
 
-export function getPenguinsInRoom(roomId) {
+export function getPenguinsInCPRoom(cpId, roomId) {
   const result = [];
   for (const penguin of penguins.values()) {
-    if (penguin.roomId === roomId) {
+    if (penguin.cpId === cpId && penguin.roomId === roomId) {
       result.push(penguin);
     }
   }

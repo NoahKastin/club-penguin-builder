@@ -8,6 +8,8 @@ const listeners = {
   penguinLeft: [],
   penguinMoved: [],
   chatMessage: [],
+  clubPenguinCreated: [],
+  clubPenguinUpdated: [],
 };
 
 // Register server event forwarding
@@ -43,28 +45,36 @@ export function changeRoom(roomId) {
   socket.emit('changeRoom', roomId);
 }
 
+export function createClubPenguin(data, callback) {
+  socket.emit('createClubPenguin', data, callback);
+}
+
+export function editClubPenguin(data, callback) {
+  socket.emit('editClubPenguin', data, callback);
+}
+
 // Join handshake: scene calls sceneReady() when create() finishes,
-// GameView calls joinWhenReady() with the name.
+// GameView calls joinWhenReady() with the name and cpId.
 // Join only fires when BOTH have happened.
-let pendingName = null;
+let pendingJoinData = null;
 let ready = false;
 
-export function joinWhenReady(name) {
-  pendingName = name;
+export function joinWhenReady(name, cpId) {
+  pendingJoinData = { name, cpId };
   if (ready) {
-    socket.emit('join', name);
+    socket.emit('join', pendingJoinData);
   }
 }
 
 export function sceneReady() {
   ready = true;
-  if (pendingName) {
-    socket.emit('join', pendingName);
+  if (pendingJoinData) {
+    socket.emit('join', pendingJoinData);
   }
 }
 
 // Called when the game is destroyed — resets handshake state
 export function reset() {
-  pendingName = null;
+  pendingJoinData = null;
   ready = false;
 }
