@@ -7,6 +7,7 @@
 - [x] Node.js + Express + Socket.io backend
 - [x] React + Phaser 3 frontend
 - [x] Chat log (scrollable history with join/leave notifications)
+- [x] Mobile-friendly responsive layout
 
 ## Next Up
 
