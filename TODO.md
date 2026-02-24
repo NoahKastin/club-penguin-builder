@@ -43,8 +43,9 @@
 - [ ] Toggle: party planning per penguin
 
 ### Central Platform
-- [ ] Penguin accounts (persistent identity across Club Penguins)
-- [ ] Dev accounts (create/manage Club Penguins)
+- [ ] Guest access always available (current name-entry flow); no account required to play
+- [ ] Accounts (optional): persistent identity across Club Penguins
+- [ ] Dev permissions: account holders can create/manage Club Penguins (permission layer, not a separate account type)
 - [ ] Upload/publish Club Penguins to the platform
 - [ ] Club Penguin updates ("parties") from devs
 - [ ] Funding model: devs/penguins fund traffic costs
@@ -65,6 +66,5 @@
 - [ ] Room backgrounds via background-sized or resizable items (no special "room background" concept)
 - [ ] Penguin list / "who's here" sidebar
 - [ ] Sound effects
-- [ ] Mobile-friendly layout
 - [ ] Server-side validation (name length, chat rate limiting)
 - [ ] Reconnection handling (rejoin room on socket reconnect)
