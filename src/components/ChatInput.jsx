@@ -51,7 +51,6 @@ export default function ChatInput() {
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         maxLength={100}
-        autoFocus
       />
       <button style={styles.button} type="submit">
         Send

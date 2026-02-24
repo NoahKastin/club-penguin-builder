@@ -8,7 +8,15 @@ const styles = {
   wrapper: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
+    width: '100%',
+    maxWidth: '800px',
+    height: '100%',
+  },
+  gameContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 'calc(100% - 200px)',
+    minHeight: '100px',
   },
 };
 
@@ -27,7 +35,7 @@ export default function GameView({ penguinName }) {
 
   return (
     <div style={styles.wrapper}>
-      <div ref={gameRef} />
+      <div ref={gameRef} style={styles.gameContainer} />
       <ChatLog />
       <ChatInput />
     </div>
