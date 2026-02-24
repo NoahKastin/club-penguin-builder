@@ -8,11 +8,15 @@
 - [x] React + Phaser 3 frontend
 - [x] Chat log (scrollable history with join/leave notifications)
 - [x] Mobile-friendly responsive layout
+- [x] Main menu with logo, Club Penguin list, and create/edit forms
+- [x] Multi-CP support (anyone can create and join Club Penguins)
+- [x] Logo (traffic-light colored "Club Penguin Builder")
+- [x] CC-BY 4.0 license
 
 ## Next Up
 
 ### Room Editor
-- [ ] Dev UI to create/edit rooms (name, dimensions)
+- [x] Form-based UI to create/edit rooms (name, background color, exits)
 - [ ] Place exits visually (drag to position, set target room)
 - [ ] Exits hidden by default (uploaded items/backgrounds cover them)
 - [ ] Toggle: hidden room (penguins can't randomly spawn there)
@@ -43,7 +47,7 @@
 - [ ] Toggle: party planning per penguin
 
 ### Central Platform
-- [ ] Guest access always available (current name-entry flow); no account required to play
+- [x] Guest access always available (current name-entry flow); no account required to play
 - [ ] Accounts (optional): persistent identity across Club Penguins
 - [ ] Dev permissions: account holders can create/manage Club Penguins (permission layer, not a separate account type)
 - [ ] Upload/publish Club Penguins to the platform
@@ -61,7 +65,7 @@
 - [ ] FAQ section: explain what "a Club Penguin" is and why this project is legal
 
 ## Branding
-- [ ] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
+- [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
 - [ ] Favicon: based on the "CPB" acronym from the logo
 
 ## Refinement Ideas (Current PoC)
