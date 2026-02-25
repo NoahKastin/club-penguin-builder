@@ -1,8 +1,8 @@
 # Club Penguin Builder — Roadmap
 
 ## Roadmap to Launch
-1. Penguin count per CP in main menu
-2. Storage & Persistence
+1. ~~Penguin count per CP in main menu~~
+2. ~~Storage & Persistence~~
 3. Accounts (optional, persistent identity)
 4. Dev permissions (account holders can create/manage CPs)
 5. Party log (save/display party launches per server)
@@ -70,7 +70,7 @@
 
 ## Storage & Persistence
 - [ ] Compact serialization: rooms and items stored as ID + coordinates/size (no duplicated asset data)
-- [ ] Persistent storage (database or file-backed) so Club Penguins survive server restarts
+- [x] Persistent storage (SQLite via better-sqlite3) so Club Penguins survive server restarts
 
 ## Deployment
 - [ ] Deploy to Fly.io
@@ -83,7 +83,7 @@
 - [ ] Auto-stop server if all online players are idle
 
 ## Main Menu
-- [ ] FAQ section: explain what "a Club Penguin" is and why this project is legal; point to TODO.md for future features and Discord for support
+- [ ] FAQ section: explain what "a Club Penguin" is and why this project is legal; default room dimensions; point to TODO.md for future features and Discord for support
 
 ## Branding
 - [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
@@ -93,6 +93,6 @@
 - [ ] Penguin sprites instead of emoji (customizable colors)
 - [ ] Room backgrounds via background-sized or resizable items (no special "room background" concept)
 - [ ] Penguin list / "who's here" sidebar
-- [ ] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)
+- [x] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)
 - [ ] Server-side validation (name length, chat rate limiting)
 - [ ] Reconnection handling (rejoin room on socket reconnect)
