@@ -3,7 +3,7 @@
 ## Roadmap to Launch
 1. ~~Penguin count per CP in main menu~~
 2. ~~Storage & Persistence~~
-3. Accounts (optional, persistent identity)
+3. ~~Accounts (optional, persistent identity)~~
 4. Dev permissions (account holders can create/manage CPs)
 5. Party log (save/display party launches per server)
 6. FAQ section in main menu
@@ -57,7 +57,7 @@
 
 ## Central Platform
 - [x] Guest access always available (current name-entry flow); no account required to play
-- [ ] Accounts (optional): persistent identity across Club Penguins
+- [x] Accounts (optional): persistent identity across Club Penguins
 - [ ] Dev permissions: account holders can create/manage Club Penguins (permission layer, not a separate account type)
 - [x] Upload/publish Club Penguins to the platform
 - [x] Club Penguin updates ("parties") from devs

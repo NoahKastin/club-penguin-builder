@@ -33,12 +33,12 @@ const styles = {
   },
 };
 
-export default function GameView({ penguinName, cpId, onBack }) {
+export default function GameView({ penguinName, authToken, cpId, onBack }) {
   const gameRef = useRef(null);
 
   useEffect(() => {
     const game = createGame(gameRef.current);
-    socket.joinWhenReady(penguinName, cpId);
+    socket.joinWhenReady(penguinName, cpId, authToken);
 
     return () => {
       socket.reset();

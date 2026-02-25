@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
+import { createAccount, login, getAccount, createSession, getSession, deleteSession } from './accounts.js';
 import {
   addPenguin,
   removePenguin,
@@ -21,6 +22,51 @@ const io = new Server(httpServer, {
     origin: '*',
     methods: ['GET', 'POST'],
   },
+});
+
+// Auth endpoints
+app.post('/api/auth/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !/^[a-zA-Z0-9_]{1,20}$/.test(username)) {
+    return res.status(400).json({ error: 'Username must be 1-20 alphanumeric characters or underscores' });
+  }
+  if (!password || password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  const account = await createAccount(username, password);
+  if (!account) {
+    return res.status(409).json({ error: 'Username already taken' });
+  }
+  const token = createSession(account.id);
+  res.json({ token, account });
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+  const account = await login(username, password);
+  if (!account) {
+    return res.status(401).json({ error: 'Invalid username or password' });
+  }
+  const token = createSession(account.id);
+  res.json({ token, account });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  if (token) deleteSession(token);
+  res.json({ ok: true });
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+  const account = getAccount(accountId);
+  if (!account) return res.status(401).json({ error: 'Not authenticated' });
+  res.json({ account });
 });
 
 // REST endpoint for listing Club Penguins
@@ -54,9 +100,19 @@ function broadcastToCPRoom(cpId, roomId, event, data, excludeSocketId = null) {
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
 
-  socket.on('join', ({ name, cpId }) => {
+  socket.on('join', ({ name, cpId, token }) => {
     const cp = getClubPenguin(cpId);
     if (!cp) return;
+
+    // If authenticated, use account username
+    let accountId = null;
+    if (token) {
+      accountId = getSession(token);
+      if (accountId) {
+        const account = getAccount(accountId);
+        if (account) name = account.username;
+      }
+    }
 
     // If already in a CP, leave it first
     const existing = getPenguin(socket.id);
@@ -66,7 +122,7 @@ io.on('connection', (socket) => {
       io.emit('clubPenguinUpdated', cpSummary(existing.cpId));
     }
 
-    const penguin = addPenguin(socket.id, name, cpId, cp.spawnRoom);
+    const penguin = addPenguin(socket.id, name, cpId, cp.spawnRoom, accountId);
 
     socket.emit('roomState', {
       room: cp.rooms[penguin.roomId],

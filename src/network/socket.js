@@ -59,8 +59,8 @@ export function editClubPenguin(data, callback) {
 let pendingJoinData = null;
 let ready = false;
 
-export function joinWhenReady(name, cpId) {
-  pendingJoinData = { name, cpId };
+export function joinWhenReady(name, cpId, token) {
+  pendingJoinData = { name, cpId, token };
   if (ready) {
     socket.emit('join', pendingJoinData);
   }

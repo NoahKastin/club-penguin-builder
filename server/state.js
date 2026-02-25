@@ -1,11 +1,12 @@
 const penguins = new Map();
 
-export function addPenguin(socketId, name, cpId, spawnRoom) {
+export function addPenguin(socketId, name, cpId, spawnRoom, accountId = null) {
   const penguin = {
     id: socketId,
     name,
     cpId,
     roomId: spawnRoom,
+    accountId,
     x: 400,
     y: 350,
   };

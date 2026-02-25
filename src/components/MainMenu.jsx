@@ -81,7 +81,7 @@ const styles = {
   },
 };
 
-export default function MainMenu({ penguinName, onSelectCP }) {
+export default function MainMenu({ penguinName, authToken, onSelectCP, onLogout }) {
   const [clubPenguins, setClubPenguins] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [editingCpId, setEditingCpId] = useState(null);
@@ -122,7 +122,10 @@ export default function MainMenu({ penguinName, onSelectCP }) {
     <div style={styles.container}>
       <img src="/logo.svg" alt="Club Penguin Builder" style={styles.logo} />
 
-      <div style={styles.welcome}>Welcome, {penguinName}!</div>
+      <div style={styles.welcome}>
+        Welcome, {penguinName}!
+        {authToken && <button style={{ marginLeft: '12px', padding: '4px 12px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }} onClick={onLogout}>Log Out</button>}
+      </div>
 
       <div style={styles.list}>
         <div style={styles.listHeader}>Choose a Club Penguin:</div>

@@ -7,9 +7,48 @@ const styles = {
     alignItems: 'center',
     gap: '20px',
   },
+  wrapper: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '16px',
+    width: '320px',
+    maxWidth: '100%',
+  },
+  logo: {
+    width: '100%',
+    height: 'auto',
+  },
+  tabs: {
+    display: 'flex',
+    gap: '0',
+    width: '100%',
+  },
+  tab: {
+    flex: 1,
+    padding: '8px 0',
+    fontSize: '0.95rem',
+    border: '2px solid #555',
+    background: '#1a1a2e',
+    color: '#888',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+  },
+  activeTab: {
+    flex: 1,
+    padding: '8px 0',
+    fontSize: '0.95rem',
+    border: '2px solid #4a90d9',
+    background: '#2a2a3e',
+    color: '#eee',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+  },
   form: {
     display: 'flex',
+    flexDirection: 'column',
     gap: '10px',
+    width: '100%',
   },
   input: {
     padding: '10px 16px',
@@ -19,6 +58,8 @@ const styles = {
     background: '#2a2a3e',
     color: '#eee',
     outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
   },
   button: {
     padding: '10px 24px',
@@ -29,28 +70,85 @@ const styles = {
     color: '#fff',
     cursor: 'pointer',
     fontWeight: 'bold',
+    width: '100%',
+  },
+  error: {
+    color: '#e74c3c',
+    fontSize: '0.9rem',
   },
 };
 
 export default function NameEntry({ onJoin }) {
+  const [tab, setTab] = useState('guest');
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e) {
+  function handleGuest(e) {
     e.preventDefault();
     const trimmed = name.trim();
-    if (trimmed) {
-      onJoin(trimmed);
-    }
+    if (trimmed) onJoin(trimmed, null);
   }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error); return; }
+      localStorage.setItem('token', data.token);
+      onJoin(data.account.username, data.token);
+    } catch { setError('Connection failed'); }
+    finally { setLoading(false); }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    setError('');
+    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error); return; }
+      localStorage.setItem('token', data.token);
+      onJoin(data.account.username, data.token);
+    } catch { setError('Connection failed'); }
+    finally { setLoading(false); }
+  }
+
+  const tabStyle = (t) => t === tab ? { ...styles.activeTab, borderRadius: t === 'guest' ? '8px 0 0 8px' : t === 'register' ? '0 8px 8px 0' : '0' } : { ...styles.tab, borderRadius: t === 'guest' ? '8px 0 0 8px' : t === 'register' ? '0 8px 8px 0' : '0' };
 
   return (
     <div style={styles.container}>
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%' }}>
-          <img src="/logo.svg" alt="Club Penguin Builder" style={{ width: '100%' }} />
-          <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+      <div style={styles.wrapper}>
+        <img src="/logo.svg" alt="Club Penguin Builder" style={styles.logo} />
+
+        <div style={styles.tabs}>
+          <button style={tabStyle('guest')} onClick={() => { setTab('guest'); setError(''); }}>Guest</button>
+          <button style={tabStyle('login')} onClick={() => { setTab('login'); setError(''); }}>Log In</button>
+          <button style={tabStyle('register')} onClick={() => { setTab('register'); setError(''); }}>Register</button>
+        </div>
+
+        {error && <div style={styles.error}>{error}</div>}
+
+        {tab === 'guest' && (
+          <form onSubmit={handleGuest} style={styles.form}>
             <input
-              style={{ ...styles.input, flex: 1, minWidth: 0 }}
+              style={styles.input}
               type="text"
               placeholder="Penguin name..."
               value={name}
@@ -58,12 +156,65 @@ export default function NameEntry({ onJoin }) {
               maxLength={20}
               autoFocus
             />
-            <button style={styles.button} type="submit">
-              Play
+            <button style={styles.button} type="submit">Play</button>
+          </form>
+        )}
+
+        {tab === 'login' && (
+          <form onSubmit={handleLogin} style={styles.form}>
+            <input
+              style={styles.input}
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              maxLength={20}
+              autoFocus
+            />
+            <input
+              style={styles.input}
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button style={styles.button} type="submit" disabled={loading}>
+              {loading ? 'Logging in...' : 'Log In'}
             </button>
-          </div>
-        </div>
-      </form>
+          </form>
+        )}
+
+        {tab === 'register' && (
+          <form onSubmit={handleRegister} style={styles.form}>
+            <input
+              style={styles.input}
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              maxLength={20}
+              autoFocus
+            />
+            <input
+              style={styles.input}
+              type="password"
+              placeholder="Password (min 6 characters)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <input
+              style={styles.input}
+              type="password"
+              placeholder="Confirm password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+            <button style={styles.button} type="submit" disabled={loading}>
+              {loading ? 'Creating...' : 'Create Account'}
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
