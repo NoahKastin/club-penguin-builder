@@ -75,6 +75,7 @@ export function sceneReady() {
 
 // Called when the game is destroyed — resets handshake state
 export function reset() {
+  socket.emit('leaveCP');
   pendingJoinData = null;
   ready = false;
 }

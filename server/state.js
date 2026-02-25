@@ -42,6 +42,14 @@ export function changePenguinRoom(socketId, roomId) {
   return penguin;
 }
 
+export function getPenguinCountForCP(cpId) {
+  let count = 0;
+  for (const penguin of penguins.values()) {
+    if (penguin.cpId === cpId) count++;
+  }
+  return count;
+}
+
 export function getPenguinsInCPRoom(cpId, roomId) {
   const result = [];
   for (const penguin of penguins.values()) {

@@ -9,6 +9,7 @@ import {
   movePenguin,
   changePenguinRoom,
   getPenguinsInCPRoom,
+  getPenguinCountForCP,
 } from './state.js';
 
 const app = express();
@@ -34,6 +35,12 @@ app.get('/api/clubpenguins/:id', (req, res) => {
 });
 
 // Broadcast to all sockets whose penguin is in the given CP + room.
+function cpSummary(cpId) {
+  const cp = getClubPenguin(cpId);
+  if (!cp) return null;
+  return { id: cp.id, name: cp.name, roomCount: Object.keys(cp.rooms).length, penguinCount: getPenguinCountForCP(cpId) };
+}
+
 function broadcastToCPRoom(cpId, roomId, event, data, excludeSocketId = null) {
   for (const [id, s] of io.sockets.sockets) {
     if (id === excludeSocketId) continue;
@@ -56,6 +63,7 @@ io.on('connection', (socket) => {
     if (existing) {
       broadcastToCPRoom(existing.cpId, existing.roomId, 'penguinLeft', { id: existing.id, name: existing.name }, socket.id);
       removePenguin(socket.id);
+      io.emit('clubPenguinUpdated', cpSummary(existing.cpId));
     }
 
     const penguin = addPenguin(socket.id, name, cpId, cp.spawnRoom);
@@ -67,6 +75,7 @@ io.on('connection', (socket) => {
     });
 
     broadcastToCPRoom(cpId, penguin.roomId, 'penguinJoined', penguin, socket.id);
+    io.emit('clubPenguinUpdated', cpSummary(cpId));
   });
 
   socket.on('move', ({ x, y }) => {
@@ -141,7 +150,7 @@ io.on('connection', (socket) => {
     }
 
     const cp = createClubPenguin(data.name.trim(), data.rooms);
-    const summary = { id: cp.id, name: cp.name, roomCount: Object.keys(cp.rooms).length };
+    const summary = cpSummary(cp.id);
     callback({ success: true, cp: summary });
     io.emit('clubPenguinCreated', summary);
   });
@@ -175,15 +184,24 @@ io.on('connection', (socket) => {
     if (!cp) {
       return callback({ success: false, error: 'Club Penguin not found' });
     }
-    const summary = { id: cp.id, name: cp.name, roomCount: Object.keys(cp.rooms).length };
+    const summary = cpSummary(cp.id);
     callback({ success: true, cp: summary });
     io.emit('clubPenguinUpdated', summary);
+  });
+
+  socket.on('leaveCP', () => {
+    const penguin = removePenguin(socket.id);
+    if (penguin) {
+      broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinLeft', { id: penguin.id, name: penguin.name });
+      io.emit('clubPenguinUpdated', cpSummary(penguin.cpId));
+    }
   });
 
   socket.on('disconnect', () => {
     const penguin = removePenguin(socket.id);
     if (penguin) {
       broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinLeft', { id: penguin.id, name: penguin.name });
+      io.emit('clubPenguinUpdated', cpSummary(penguin.cpId));
     }
     console.log(`Disconnected: ${socket.id}`);
   });

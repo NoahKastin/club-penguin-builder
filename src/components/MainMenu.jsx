@@ -98,7 +98,7 @@ export default function MainMenu({ penguinName, onSelectCP }) {
       });
     }
     function onUpdated(cp) {
-      setClubPenguins(prev => prev.map(p => p.id === cp.id ? { ...p, name: cp.name, roomCount: cp.roomCount } : p));
+      setClubPenguins(prev => prev.map(p => p.id === cp.id ? { ...p, name: cp.name, roomCount: cp.roomCount, penguinCount: cp.penguinCount } : p));
     }
     socket.on('clubPenguinCreated', onCreated);
     socket.on('clubPenguinUpdated', onUpdated);
@@ -133,7 +133,7 @@ export default function MainMenu({ penguinName, onSelectCP }) {
           <div key={cp.id} style={styles.cpRow}>
             <button style={styles.cpButton} onClick={() => onSelectCP(cp)}>
               <span>{cp.name}</span>
-              <span style={styles.roomCount}>{cp.roomCount} {cp.roomCount === 1 ? 'room' : 'rooms'}</span>
+              <span style={styles.roomCount}>{cp.roomCount} {cp.roomCount === 1 ? 'room' : 'rooms'} · {cp.penguinCount || 0} online</span>
             </button>
             <button style={styles.editButton} onClick={() => setEditingCpId(cp.id)}>Edit</button>
           </div>

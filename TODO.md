@@ -1,5 +1,14 @@
 # Club Penguin Builder — Roadmap
 
+## Roadmap to Launch
+1. Penguin count per CP in main menu
+2. Storage & Persistence
+3. Accounts (optional, persistent identity)
+4. Dev permissions (account holders can create/manage CPs)
+5. Party log (save/display party launches per server)
+6. FAQ section in main menu
+7. Deployment (Fly.io)
+
 ## Done
 - [x] Core engine: rooms, multiplayer presence, click-to-move, speech bubbles, room transitions
 - [x] Two test rooms (Patio, Veranda) with exits between them

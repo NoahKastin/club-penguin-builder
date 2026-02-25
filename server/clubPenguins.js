@@ -1,3 +1,5 @@
+import { getPenguinCountForCP } from './state.js';
+
 const clubPenguins = new Map();
 let nextId = 1;
 
@@ -27,6 +29,7 @@ export function listClubPenguins() {
     id: cp.id,
     name: cp.name,
     roomCount: Object.keys(cp.rooms).length,
+    penguinCount: getPenguinCountForCP(cp.id),
   }));
 }
 
