@@ -1,6 +1,8 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession } from './accounts.js';
 import { launchParty, getPartyLog } from './parties.js';
@@ -14,8 +16,11 @@ import {
   getPenguinCountForCP,
 } from './state.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 const app = express();
 app.use(express.json());
+app.use(express.static(join(__dirname, '..', 'dist')));
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -289,7 +294,12 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = 3001;
+// Catch-all: serve index.html for client-side routing
+app.get('*', (req, res) => {
+  res.sendFile(join(__dirname, '..', 'dist', 'index.html'));
+});
+
+const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

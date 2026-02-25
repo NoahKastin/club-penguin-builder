@@ -76,11 +76,11 @@
 
 ## Deployment
 - [ ] Deploy to Fly.io
-- [ ] Production build script (Vite builds frontend, Express serves it + runs Socket.io)
+- [x] Production build script (Vite builds frontend, Express serves it + runs Socket.io)
 - [ ] Environment-based config (port, CORS origin)
 - [ ] Geo-restrict to regions where the "Club Penguin" trademark is not active
 - [ ] Consider a process manager (PM2) or container for reliability
-- [ ] Remove the Outdoors test Club Penguin
+- [x] Remove the Outdoors test Club Penguin
 - [ ] Caching + CDN for static assets to reduce bandwidth costs
 - [ ] Auto-stop server if all online players are idle
 
