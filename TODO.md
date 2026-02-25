@@ -59,6 +59,7 @@
 - [ ] Deploy to a hosting provider that supports Node.js + WebSockets (Railway, Render, Fly.io, or existing hosting)
 - [ ] Production build script (Vite builds frontend, Express serves it + runs Socket.io)
 - [ ] Environment-based config (port, CORS origin)
+- [ ] Geo-restrict to regions where the "Club Penguin" trademark is no longer active
 - [ ] Consider a process manager (PM2) or container for reliability
 
 ## Main Menu
