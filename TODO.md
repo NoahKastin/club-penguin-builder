@@ -31,11 +31,11 @@
 - [ ] Bundle items into "games" (specific location configurations of items, e.g. beans placed into a Mancala board)
 
 ### Item Behaviors (per room)
-- [ ] Collectible by penguins (pins, colors/sprites, clothes, puffles, igloo furniture)
+- [ ] Collectible by penguins (pins, colors/sprites, clothes, igloo furniture)
 - [ ] Draggable by penguins
 - [ ] Physics: skid/bounce, gravity toward a location
 - [ ] Block penguin movement
-- [ ] Clothes equip without regard for item slots (later-equipped goes on top)
+- [ ] Clothes equip without regard for item slots (later-equipped goes on top); puffles are a subset of clothes
 - [ ] Configurable memory limit for clothes per penguin
 
 ### Moderation
@@ -45,25 +45,36 @@
 - [ ] Item policy: allow/whitelist/blacklist items from other Club Penguins
 - [ ] Toggle: private igloos per penguin
 - [ ] Toggle: party planning per penguin
+- [ ] Devs can freely elect other accounts as devs and/or mods
 
 ### Central Platform
 - [x] Guest access always available (current name-entry flow); no account required to play
 - [ ] Accounts (optional): persistent identity across Club Penguins
 - [ ] Dev permissions: account holders can create/manage Club Penguins (permission layer, not a separate account type)
-- [ ] Upload/publish Club Penguins to the platform
-- [ ] Club Penguin updates ("parties") from devs
-- [ ] Funding model: devs/penguins fund traffic costs
-- [ ] Monetization: devs can paywall moderation features (party planning, external items, clothes memory, enforcement actions)
+- [x] Upload/publish Club Penguins to the platform
+- [x] Club Penguin updates ("parties") from devs
+- [ ] Party log per server: saves when parties were launched with their name (entered via the create/edit CP form); users can view the log by clicking an icon next to each server in the CP list
+- [ ] Funding model: free tier, then beyond that supporters pitch in the maximum they're willing to pay (one-time or monthly); actual costs (Fly.io charges + platform cut) are divided evenly across the total money offered
+- [ ] Separate tiers for paying to support the server vs. paying to support those who are supporting the server; moderation-choice perks can be gated behind either
+- [ ] Supporters are not synonymous with devs (someone can pay to support without having rights to adjust the CP, though dev access itself could be a perk for supporting)
+- [ ] Monetization: devs can paywall moderation features (party planning, external items, clothes memory, enforcement actions) — either one-off or subscription, at whatever price the dev wants
+
+## Storage & Persistence
+- [ ] Compact serialization: rooms and items stored as ID + coordinates/size (no duplicated asset data)
+- [ ] Persistent storage (database or file-backed) so Club Penguins survive server restarts
 
 ## Deployment
-- [ ] Deploy to a hosting provider that supports Node.js + WebSockets (Railway, Render, Fly.io, or existing hosting)
+- [ ] Deploy to Fly.io
 - [ ] Production build script (Vite builds frontend, Express serves it + runs Socket.io)
 - [ ] Environment-based config (port, CORS origin)
-- [ ] Geo-restrict to regions where the "Club Penguin" trademark is no longer active
+- [ ] Geo-restrict to regions where the "Club Penguin" trademark is not active
 - [ ] Consider a process manager (PM2) or container for reliability
+- [ ] Remove the Outdoors test Club Penguin
+- [ ] Caching + CDN for static assets to reduce bandwidth costs
+- [ ] Auto-stop server if all online players are idle
 
 ## Main Menu
-- [ ] FAQ section: explain what "a Club Penguin" is and why this project is legal
+- [ ] FAQ section: explain what "a Club Penguin" is and why this project is legal; point to TODO.md for future features and Discord for support
 
 ## Branding
 - [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
@@ -73,6 +84,6 @@
 - [ ] Penguin sprites instead of emoji (customizable colors)
 - [ ] Room backgrounds via background-sized or resizable items (no special "room background" concept)
 - [ ] Penguin list / "who's here" sidebar
-- [ ] Sound effects
+- [ ] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)
 - [ ] Server-side validation (name length, chat rate limiting)
 - [ ] Reconnection handling (rejoin room on socket reconnect)
