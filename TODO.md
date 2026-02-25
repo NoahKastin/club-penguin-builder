@@ -66,7 +66,7 @@
 
 ## Branding
 - [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
-- [ ] Favicon: based on the "CPB" acronym from the logo
+- [x] Favicon: based on the "CPB" acronym from the logo
 
 ## Refinement Ideas (Current PoC)
 - [ ] Penguin sprites instead of emoji (customizable colors)

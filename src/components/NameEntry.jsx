@@ -7,10 +7,6 @@ const styles = {
     alignItems: 'center',
     gap: '20px',
   },
-  title: {
-    fontSize: '2rem',
-    fontWeight: 'bold',
-  },
   form: {
     display: 'flex',
     gap: '10px',
@@ -49,21 +45,24 @@ export default function NameEntry({ onJoin }) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.title}>Club Penguin Builder</div>
-      <div style={{ fontSize: '4rem' }}>🐧</div>
       <form onSubmit={handleSubmit} style={styles.form}>
-        <input
-          style={styles.input}
-          type="text"
-          placeholder="Penguin name..."
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={20}
-          autoFocus
-        />
-        <button style={styles.button} type="submit">
-          Play
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%' }}>
+          <img src="/logo.svg" alt="Club Penguin Builder" style={{ width: '100%' }} />
+          <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+            <input
+              style={{ ...styles.input, flex: 1, minWidth: 0 }}
+              type="text"
+              placeholder="Penguin name..."
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={20}
+              autoFocus
+            />
+            <button style={styles.button} type="submit">
+              Play
+            </button>
+          </div>
+        </div>
       </form>
     </div>
   );
