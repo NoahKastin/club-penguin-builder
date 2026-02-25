@@ -6,7 +6,7 @@
 3. ~~Accounts (optional, persistent identity)~~
 4. ~~Dev permissions (account holders can create/manage CPs)~~
 5. ~~Party log (save/display party launches per server)~~
-6. FAQ section in main menu
+6. ~~FAQ section in main menu~~
 7. Deployment (Fly.io)
 
 ## Done
@@ -69,7 +69,7 @@
 - [ ] Monetization: devs can paywall moderation features (party planning, external items, clothes memory, enforcement actions) — either one-off or subscription, at whatever price the dev wants
 
 ## Main Menu
-- [ ] FAQ section: explain what "a Club Penguin" is and why this project is legal; default room dimensions; point to TODO.md for future features and Discord for support
+- [x] FAQ section: explain what "a Club Penguin" is and why this project is legal; default room dimensions; point to TODO.md for future features and Discord for support
 - [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
 - [x] Favicon: based on the "CPB" acronym from the logo
 - [x] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)

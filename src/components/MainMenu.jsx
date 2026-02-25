@@ -87,6 +87,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
   const [editingCpId, setEditingCpId] = useState(null);
   const [partyLogCpId, setPartyLogCpId] = useState(null);
   const [partyLog, setPartyLog] = useState([]);
+  const [showFaq, setShowFaq] = useState(false);
 
   useEffect(() => {
     fetch('/api/clubpenguins')
@@ -176,6 +177,35 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
         <button style={styles.createButton} onClick={() => setShowCreate(true)}>
           Create Club Penguin
         </button>
+      )}
+
+      <button style={{ ...styles.editButton, fontSize: '0.95rem', padding: '8px 16px' }} onClick={() => setShowFaq(!showFaq)}>
+        {showFaq ? 'Hide FAQ' : 'FAQ'}
+      </button>
+
+      {showFaq && (
+        <div style={{ width: '100%', padding: '16px', background: '#1a1a2e', borderRadius: '8px', fontSize: '0.9rem', lineHeight: '1.5', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div>
+            <strong>What is "a Club Penguin"?</strong>
+            <div style={{ color: '#ccc' }}>A Club Penguin is a multiplayer social game — essentially a chatroom with a visual, spatial layer on top. Players walk around rooms as penguins, chat with speech bubbles, and explore. This platform lets anyone with an account create and customize their own.</div>
+          </div>
+          <div>
+            <strong>Is this legal?</strong>
+            <div style={{ color: '#ccc' }}>Yes. The original Club Penguin was shut down by Disney in 2017 and the trademark is not active in most regions. This is an independent, open-source platform for building new Club Penguin-style games — it does not copy or distribute any Disney assets.</div>
+          </div>
+          <div>
+            <strong>What are the default room dimensions?</strong>
+            <div style={{ color: '#ccc' }}>Rooms are 800x600 pixels. Exit coordinates and sizes are relative to this canvas.</div>
+          </div>
+          <div>
+            <strong>What features are coming next?</strong>
+            <div style={{ color: '#ccc' }}>See the full roadmap at <a href="https://github.com/NoahKastin/club-penguin-builder/blob/main/TODO.md" target="_blank" rel="noopener noreferrer" style={{ color: '#4a90d9' }}>TODO.md on GitHub</a>.</div>
+          </div>
+          <div>
+            <strong>Need help or want to give feedback?</strong>
+            <div style={{ color: '#ccc' }}>Join the <a href="https://discord.gg/2hnu58NPrg" target="_blank" rel="noopener noreferrer" style={{ color: '#4a90d9' }}>Discord server</a>.</div>
+          </div>
+        </div>
       )}
     </div>
   );
