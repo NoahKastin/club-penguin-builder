@@ -85,6 +85,8 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
   const [clubPenguins, setClubPenguins] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [editingCpId, setEditingCpId] = useState(null);
+  const [partyLogCpId, setPartyLogCpId] = useState(null);
+  const [partyLog, setPartyLog] = useState([]);
 
   useEffect(() => {
     fetch('/api/clubpenguins')
@@ -136,12 +138,36 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
           <div style={styles.empty}>No Club Penguins yet!</div>
         )}
         {clubPenguins.map(cp => (
-          <div key={cp.id} style={styles.cpRow}>
-            <button style={styles.cpButton} onClick={() => onSelectCP(cp)}>
-              <span>{cp.name}</span>
-              <span style={styles.roomCount}>{cp.roomCount} {cp.roomCount === 1 ? 'room' : 'rooms'} · {cp.penguinCount || 0} online</span>
-            </button>
-            {accountId && accountId === cp.creatorId && <button style={styles.editButton} onClick={() => setEditingCpId(cp.id)}>Edit</button>}
+          <div key={cp.id}>
+            <div style={styles.cpRow}>
+              <button style={styles.cpButton} onClick={() => onSelectCP(cp)}>
+                <span>{cp.name}</span>
+                <span style={styles.roomCount}>{cp.roomCount} {cp.roomCount === 1 ? 'room' : 'rooms'} · {cp.penguinCount || 0} online</span>
+              </button>
+              <button style={styles.editButton} onClick={() => {
+                if (partyLogCpId === cp.id) { setPartyLogCpId(null); return; }
+                fetch(`/api/clubpenguins/${cp.id}/parties`).then(r => r.json()).then(log => {
+                  setPartyLog(log);
+                  setPartyLogCpId(cp.id);
+                });
+              }} title="Party log">
+                {partyLogCpId === cp.id ? 'X' : '\u{1F389}'}
+              </button>
+              {accountId && accountId === cp.creatorId && <button style={styles.editButton} onClick={() => setEditingCpId(cp.id)}>Edit</button>}
+            </div>
+            {partyLogCpId === cp.id && (
+              <div style={{ padding: '8px 16px', background: '#1a1a2e', borderRadius: '0 0 8px 8px', marginTop: '-4px', fontSize: '0.85rem' }}>
+                {partyLog.length === 0
+                  ? <div style={{ color: '#666', fontStyle: 'italic' }}>No parties yet</div>
+                  : partyLog.map(p => (
+                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #333' }}>
+                      <span style={{ color: '#eee' }}>{p.name}</span>
+                      <span style={{ color: '#888' }}>{new Date(p.launchedAt).toLocaleDateString()}</span>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -25,6 +25,15 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS parties (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cp_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    launched_at INTEGER NOT NULL
+  )
+`);
+
 // Migration: add creator_id to club_penguins
 const columns = db.prepare("PRAGMA table_info(club_penguins)").all().map(c => c.name);
 if (!columns.includes('creator_id')) {

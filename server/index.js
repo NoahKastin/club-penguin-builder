@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession } from './accounts.js';
+import { launchParty, getPartyLog } from './parties.js';
 import {
   addPenguin,
   removePenguin,
@@ -78,6 +79,12 @@ app.get('/api/clubpenguins/:id', (req, res) => {
   const cp = getClubPenguin(req.params.id);
   if (!cp) return res.status(404).json({ error: 'Not found' });
   res.json(cp);
+});
+
+app.get('/api/clubpenguins/:id/parties', (req, res) => {
+  const cp = getClubPenguin(req.params.id);
+  if (!cp) return res.status(404).json({ error: 'Not found' });
+  res.json(getPartyLog(req.params.id));
 });
 
 // Broadcast to all sockets whose penguin is in the given CP + room.
@@ -257,6 +264,9 @@ io.on('connection', (socket) => {
       return callback({ success: false, error: 'Club Penguin not found' });
     }
     const summary = cpSummary(cp.id);
+    if (data.partyName && data.partyName.trim()) {
+      launchParty(data.id, data.partyName.trim());
+    }
     callback({ success: true, cp: summary });
     io.emit('clubPenguinUpdated', summary);
   });

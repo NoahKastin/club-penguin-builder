@@ -141,6 +141,7 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
   const [rooms, setRooms] = useState([
     { tempId: 'room_1', name: 'Lobby', bgColor: '#333333', spawn: true, exits: [] },
   ]);
+  const [partyName, setPartyName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(!!editCpId);
 
@@ -265,7 +266,7 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
     }
 
     if (editCpId) {
-      socket.editClubPenguin({ id: editCpId, name: cpName.trim(), rooms: roomsObj }, (response) => {
+      socket.editClubPenguin({ id: editCpId, name: cpName.trim(), rooms: roomsObj, partyName: partyName.trim() || undefined }, (response) => {
         if (response.success) {
           onCreated(response.cp);
         } else {
@@ -383,6 +384,20 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
       ))}
 
       <button style={styles.smallButton} onClick={addRoom}>+ Add Room</button>
+
+      {editCpId && (
+        <div style={styles.field}>
+          <label style={styles.label}>Party name (optional — describes this update in the party log)</label>
+          <input
+            style={styles.input}
+            type="text"
+            placeholder="e.g. New room added, Holiday decorations..."
+            value={partyName}
+            onChange={(e) => setPartyName(e.target.value)}
+            maxLength={60}
+          />
+        </div>
+      )}
 
       {error && <div style={styles.error}>{error}</div>}
 

@@ -5,7 +5,7 @@
 2. ~~Storage & Persistence~~
 3. ~~Accounts (optional, persistent identity)~~
 4. ~~Dev permissions (account holders can create/manage CPs)~~
-5. Party log (save/display party launches per server)
+5. ~~Party log (save/display party launches per server)~~
 6. FAQ section in main menu
 7. Deployment (Fly.io)
 
@@ -61,7 +61,7 @@
 - [x] Dev permissions: account holders can create/manage Club Penguins (permission layer, not a separate account type)
 - [x] Upload/publish Club Penguins to the platform
 - [x] Club Penguin updates ("parties") from devs
-- [ ] Party log per server: saves when parties were launched with their name (entered via the create/edit CP form); users can view the log by clicking an icon next to each server in the CP list
+- [x] Party log per server: saves when parties were launched with their name (entered via the create/edit CP form); users can view the log by clicking an icon next to each server in the CP list
 - [ ] Compact serialization: rooms and items stored as ID + coordinates/size (no duplicated asset data)
 - [ ] Funding model: free tier, then beyond that supporters pitch in the maximum they're willing to pay (one-time or monthly); actual costs (Fly.io charges + platform cut) are divided evenly across the total money offered
 - [ ] Separate tiers for paying to support the server vs. paying to support those who are supporting the server; moderation-choice perks can be gated behind either
