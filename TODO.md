@@ -21,17 +21,16 @@
 - [x] Multi-CP support (anyone can create and join Club Penguins)
 - [x] Logo (traffic-light colored "Club Penguin Builder")
 - [x] CC-BY 4.0 license
+- [x] Persistent storage (SQLite via better-sqlite3) so Club Penguins survive server restarts
 
-## Next Up
-
-### Room Editor
+## Room Editor
 - [x] Form-based UI to create/edit rooms (name, background color, exits)
 - [ ] Place exits visually (drag to position, set target room)
 - [ ] Exits hidden by default (uploaded items/backgrounds cover them)
 - [ ] Toggle: hidden room (penguins can't randomly spawn there)
 - [ ] Toggle: party planning enabled (decoration by devs with uploaded items)
 
-### Item System & Catalog
+## Item System & Catalog
 - [ ] Central item marketplace ("Catalog") for uploading/downloading items
 - [ ] Item upload flow (image + metadata)
 - [ ] AI guardrail for uploaded items (copyright check against Club Penguin Archive, block porn/living people/etc.)
@@ -39,7 +38,7 @@
 - [ ] Uploaders can always use their own items
 - [ ] Bundle items into "games" (specific location configurations of items, e.g. beans placed into a Mancala board)
 
-### Item Behaviors (per room)
+## Item Behaviors (per room)
 - [ ] Collectible by penguins (pins, colors/sprites, clothes, igloo furniture)
 - [ ] Draggable by penguins
 - [ ] Physics: skid/bounce, gravity toward a location
@@ -47,7 +46,7 @@
 - [ ] Clothes equip without regard for item slots (later-equipped goes on top); puffles are a subset of clothes
 - [ ] Configurable memory limit for clothes per penguin
 
-### Moderation
+## Moderation
 - [ ] Rules stated per Club Penguin
 - [ ] Configurable enforcement actions
 - [ ] AI automod (toggleable in bits/pieces, varying intensity)
@@ -56,21 +55,24 @@
 - [ ] Toggle: party planning per penguin
 - [ ] Devs can freely elect other accounts as devs and/or mods
 
-### Central Platform
+## Central Platform
 - [x] Guest access always available (current name-entry flow); no account required to play
 - [ ] Accounts (optional): persistent identity across Club Penguins
 - [ ] Dev permissions: account holders can create/manage Club Penguins (permission layer, not a separate account type)
 - [x] Upload/publish Club Penguins to the platform
 - [x] Club Penguin updates ("parties") from devs
 - [ ] Party log per server: saves when parties were launched with their name (entered via the create/edit CP form); users can view the log by clicking an icon next to each server in the CP list
+- [ ] Compact serialization: rooms and items stored as ID + coordinates/size (no duplicated asset data)
 - [ ] Funding model: free tier, then beyond that supporters pitch in the maximum they're willing to pay (one-time or monthly); actual costs (Fly.io charges + platform cut) are divided evenly across the total money offered
 - [ ] Separate tiers for paying to support the server vs. paying to support those who are supporting the server; moderation-choice perks can be gated behind either
 - [ ] Supporters are not synonymous with devs (someone can pay to support without having rights to adjust the CP, though dev access itself could be a perk for supporting)
 - [ ] Monetization: devs can paywall moderation features (party planning, external items, clothes memory, enforcement actions) — either one-off or subscription, at whatever price the dev wants
 
-## Storage & Persistence
-- [ ] Compact serialization: rooms and items stored as ID + coordinates/size (no duplicated asset data)
-- [x] Persistent storage (SQLite via better-sqlite3) so Club Penguins survive server restarts
+## Main Menu
+- [ ] FAQ section: explain what "a Club Penguin" is and why this project is legal; default room dimensions; point to TODO.md for future features and Discord for support
+- [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
+- [x] Favicon: based on the "CPB" acronym from the logo
+- [x] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)
 
 ## Deployment
 - [ ] Deploy to Fly.io
@@ -82,17 +84,9 @@
 - [ ] Caching + CDN for static assets to reduce bandwidth costs
 - [ ] Auto-stop server if all online players are idle
 
-## Main Menu
-- [ ] FAQ section: explain what "a Club Penguin" is and why this project is legal; default room dimensions; point to TODO.md for future features and Discord for support
-
-## Branding
-- [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
-- [x] Favicon: based on the "CPB" acronym from the logo
-
 ## Refinement Ideas (Current PoC)
 - [ ] Penguin sprites instead of emoji (customizable colors)
 - [ ] Room backgrounds via background-sized or resizable items (no special "room background" concept)
 - [ ] Penguin list / "who's here" sidebar
-- [x] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)
 - [ ] Server-side validation (name length, chat rate limiting)
 - [ ] Reconnection handling (rejoin room on socket reconnect)
