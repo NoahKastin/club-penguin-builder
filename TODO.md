@@ -7,7 +7,7 @@
 4. ~~Dev permissions (account holders can create/manage CPs)~~
 5. ~~Party log (save/display party launches per server)~~
 6. ~~FAQ section in main menu~~
-7. Deployment (Fly.io)
+7. ~~Deployment (Fly.io)~~
 
 ## Done
 - [x] Core engine: rooms, multiplayer presence, click-to-move, speech bubbles, room transitions
@@ -75,14 +75,14 @@
 - [x] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)
 
 ## Deployment
-- [ ] Deploy to Fly.io
+- [x] Deploy to Fly.io
 - [x] Production build script (Vite builds frontend, Express serves it + runs Socket.io)
-- [ ] Environment-based config (port, CORS origin)
+- [x] Environment-based config (port, CORS origin)
 - [ ] Geo-restrict to regions where the "Club Penguin" trademark is not active
-- [ ] Consider a process manager (PM2) or container for reliability
+- [x] Containerized via Docker on Fly.io
 - [x] Remove the Outdoors test Club Penguin
 - [ ] Caching + CDN for static assets to reduce bandwidth costs
-- [ ] Auto-stop server if all online players are idle
+- [x] Auto-stop server if all online players are idle (Fly.io auto_stop_machines)
 
 ## Refinement Ideas (Current PoC)
 - [ ] Penguin sprites instead of emoji (customizable colors)
