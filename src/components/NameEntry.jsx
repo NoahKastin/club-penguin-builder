@@ -90,7 +90,7 @@ export default function NameEntry({ onJoin }) {
   function handleGuest(e) {
     e.preventDefault();
     const trimmed = name.trim();
-    if (trimmed) onJoin(trimmed, null);
+    if (trimmed) onJoin(trimmed, null, null);
   }
 
   async function handleLogin(e) {
@@ -106,7 +106,7 @@ export default function NameEntry({ onJoin }) {
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       localStorage.setItem('token', data.token);
-      onJoin(data.account.username, data.token);
+      onJoin(data.account.username, data.token, data.account.id);
     } catch { setError('Connection failed'); }
     finally { setLoading(false); }
   }
@@ -125,7 +125,7 @@ export default function NameEntry({ onJoin }) {
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       localStorage.setItem('token', data.token);
-      onJoin(data.account.username, data.token);
+      onJoin(data.account.username, data.token, data.account.id);
     } catch { setError('Connection failed'); }
     finally { setLoading(false); }
   }
@@ -141,6 +141,10 @@ export default function NameEntry({ onJoin }) {
           <button style={tabStyle('guest')} onClick={() => { setTab('guest'); setError(''); }}>Guest</button>
           <button style={tabStyle('login')} onClick={() => { setTab('login'); setError(''); }}>Log In</button>
           <button style={tabStyle('register')} onClick={() => { setTab('register'); setError(''); }}>Register</button>
+        </div>
+
+        <div style={{ fontSize: '0.85rem', color: '#888', textAlign: 'center' }}>
+          {tab === 'guest' ? 'Jump in and play! Create an account to build your own Club Penguin.' : 'Accounts can create and manage Club Penguins.'}
         </div>
 
         {error && <div style={styles.error}>{error}</div>}

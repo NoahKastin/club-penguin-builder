@@ -84,7 +84,7 @@ app.get('/api/clubpenguins/:id', (req, res) => {
 function cpSummary(cpId) {
   const cp = getClubPenguin(cpId);
   if (!cp) return null;
-  return { id: cp.id, name: cp.name, roomCount: Object.keys(cp.rooms).length, penguinCount: getPenguinCountForCP(cpId) };
+  return { id: cp.id, name: cp.name, roomCount: Object.keys(cp.rooms).length, penguinCount: getPenguinCountForCP(cpId), creatorId: cp.creatorId || null };
 }
 
 function broadcastToCPRoom(cpId, roomId, event, data, excludeSocketId = null) {
@@ -179,6 +179,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('createClubPenguin', (data, callback) => {
+    // Auth check: must be logged in
+    const creatorAccountId = data.token ? getSession(data.token) : null;
+    if (!creatorAccountId) {
+      return callback({ success: false, error: 'You must be logged in to create a Club Penguin' });
+    }
+
     // Validate
     if (!data.name || !data.name.trim()) {
       return callback({ success: false, error: 'Name is required' });
@@ -205,13 +211,23 @@ io.on('connection', (socket) => {
       }
     }
 
-    const cp = createClubPenguin(data.name.trim(), data.rooms);
+    const cp = createClubPenguin(data.name.trim(), data.rooms, creatorAccountId);
     const summary = cpSummary(cp.id);
     callback({ success: true, cp: summary });
     io.emit('clubPenguinCreated', summary);
   });
 
   socket.on('editClubPenguin', (data, callback) => {
+    // Auth check: must be logged in and be the creator
+    const editorAccountId = data.token ? getSession(data.token) : null;
+    if (!editorAccountId) {
+      return callback({ success: false, error: 'You must be logged in to edit a Club Penguin' });
+    }
+    const existingCp = getClubPenguin(data.id);
+    if (existingCp && existingCp.creatorId && existingCp.creatorId !== editorAccountId) {
+      return callback({ success: false, error: 'You can only edit Club Penguins you created' });
+    }
+
     if (!data.id || !data.name || !data.name.trim()) {
       return callback({ success: false, error: 'Name is required' });
     }

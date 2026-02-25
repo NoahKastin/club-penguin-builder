@@ -81,7 +81,7 @@ const styles = {
   },
 };
 
-export default function MainMenu({ penguinName, authToken, onSelectCP, onLogout }) {
+export default function MainMenu({ penguinName, authToken, accountId, onSelectCP, onLogout }) {
   const [clubPenguins, setClubPenguins] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [editingCpId, setEditingCpId] = useState(null);
@@ -98,7 +98,7 @@ export default function MainMenu({ penguinName, authToken, onSelectCP, onLogout 
       });
     }
     function onUpdated(cp) {
-      setClubPenguins(prev => prev.map(p => p.id === cp.id ? { ...p, name: cp.name, roomCount: cp.roomCount, penguinCount: cp.penguinCount } : p));
+      setClubPenguins(prev => prev.map(p => p.id === cp.id ? { ...p, name: cp.name, roomCount: cp.roomCount, penguinCount: cp.penguinCount, creatorId: cp.creatorId } : p));
     }
     socket.on('clubPenguinCreated', onCreated);
     socket.on('clubPenguinUpdated', onUpdated);
@@ -124,7 +124,10 @@ export default function MainMenu({ penguinName, authToken, onSelectCP, onLogout 
 
       <div style={styles.welcome}>
         Welcome, {penguinName}!
-        {authToken && <button style={{ marginLeft: '12px', padding: '4px 12px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }} onClick={onLogout}>Log Out</button>}
+        {authToken
+          ? <button style={{ marginLeft: '12px', padding: '4px 12px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }} onClick={onLogout}>Log Out</button>
+          : <button style={{ marginLeft: '12px', padding: '4px 12px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }} onClick={onLogout}>Sign Up / Log In</button>
+        }
       </div>
 
       <div style={styles.list}>
@@ -138,14 +141,16 @@ export default function MainMenu({ penguinName, authToken, onSelectCP, onLogout 
               <span>{cp.name}</span>
               <span style={styles.roomCount}>{cp.roomCount} {cp.roomCount === 1 ? 'room' : 'rooms'} · {cp.penguinCount || 0} online</span>
             </button>
-            <button style={styles.editButton} onClick={() => setEditingCpId(cp.id)}>Edit</button>
+            {accountId && accountId === cp.creatorId && <button style={styles.editButton} onClick={() => setEditingCpId(cp.id)}>Edit</button>}
           </div>
         ))}
       </div>
 
-      <button style={styles.createButton} onClick={() => setShowCreate(true)}>
-        Create Club Penguin
-      </button>
+      {authToken && (
+        <button style={styles.createButton} onClick={() => setShowCreate(true)}>
+          Create Club Penguin
+        </button>
+      )}
     </div>
   );
 }

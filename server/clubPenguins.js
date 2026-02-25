@@ -11,16 +11,17 @@ function rowToCP(row) {
     name: row.name,
     rooms: JSON.parse(row.rooms),
     spawnRoom: row.spawn_room,
+    creatorId: row.creator_id || null,
     createdAt: row.created_at,
   };
 }
 
-export function createClubPenguin(name, rooms) {
+export function createClubPenguin(name, rooms, creatorId = null) {
   const id = 'cp_' + (nextId++);
   const spawnRoom = Object.keys(rooms).find(k => rooms[k].spawn) || Object.keys(rooms)[0];
   const createdAt = Date.now();
-  db.prepare('INSERT INTO club_penguins (id, name, rooms, spawn_room, created_at) VALUES (?, ?, ?, ?, ?)').run(id, name, JSON.stringify(rooms), spawnRoom, createdAt);
-  return { id, name, rooms, spawnRoom, createdAt };
+  db.prepare('INSERT INTO club_penguins (id, name, rooms, spawn_room, created_at, creator_id) VALUES (?, ?, ?, ?, ?, ?)').run(id, name, JSON.stringify(rooms), spawnRoom, createdAt, creatorId);
+  return { id, name, rooms, spawnRoom, creatorId, createdAt };
 }
 
 export function getClubPenguin(cpId) {
@@ -42,6 +43,7 @@ export function listClubPenguins() {
     name: row.name,
     roomCount: Object.keys(JSON.parse(row.rooms)).length,
     penguinCount: getPenguinCountForCP(row.id),
+    creatorId: row.creator_id || null,
   }));
 }
 

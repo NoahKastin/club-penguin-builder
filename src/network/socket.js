@@ -45,12 +45,18 @@ export function changeRoom(roomId) {
   socket.emit('changeRoom', roomId);
 }
 
+let storedToken = null;
+
+export function setAuthToken(token) {
+  storedToken = token;
+}
+
 export function createClubPenguin(data, callback) {
-  socket.emit('createClubPenguin', data, callback);
+  socket.emit('createClubPenguin', { ...data, token: storedToken }, callback);
 }
 
 export function editClubPenguin(data, callback) {
-  socket.emit('editClubPenguin', data, callback);
+  socket.emit('editClubPenguin', { ...data, token: storedToken }, callback);
 }
 
 // Join handshake: scene calls sceneReady() when create() finishes,

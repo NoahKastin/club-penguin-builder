@@ -4,7 +4,7 @@
 1. ~~Penguin count per CP in main menu~~
 2. ~~Storage & Persistence~~
 3. ~~Accounts (optional, persistent identity)~~
-4. Dev permissions (account holders can create/manage CPs)
+4. ~~Dev permissions (account holders can create/manage CPs)~~
 5. Party log (save/display party launches per server)
 6. FAQ section in main menu
 7. Deployment (Fly.io)
@@ -58,7 +58,7 @@
 ## Central Platform
 - [x] Guest access always available (current name-entry flow); no account required to play
 - [x] Accounts (optional): persistent identity across Club Penguins
-- [ ] Dev permissions: account holders can create/manage Club Penguins (permission layer, not a separate account type)
+- [x] Dev permissions: account holders can create/manage Club Penguins (permission layer, not a separate account type)
 - [x] Upload/publish Club Penguins to the platform
 - [x] Club Penguin updates ("parties") from devs
 - [ ] Party log per server: saves when parties were launched with their name (entered via the create/edit CP form); users can view the log by clicking an icon next to each server in the CP list

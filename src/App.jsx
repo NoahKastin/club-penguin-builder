@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import NameEntry from './components/NameEntry';
 import MainMenu from './components/MainMenu';
 import GameView from './components/GameView';
+import { setAuthToken as setSocketAuthToken } from './network/socket';
 
 export default function App() {
   const [penguinName, setPenguinName] = useState(null);
   const [authToken, setAuthToken] = useState(null);
+  const [accountId, setAccountId] = useState(null);
   const [selectedCP, setSelectedCP] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -18,14 +20,18 @@ export default function App() {
       .then(data => {
         setPenguinName(data.account.username);
         setAuthToken(token);
+        setAccountId(data.account.id);
+        setSocketAuthToken(token);
       })
       .catch(() => localStorage.removeItem('token'))
       .finally(() => setLoading(false));
   }, []);
 
-  function handleJoin(name, token) {
+  function handleJoin(name, token, acctId) {
     setPenguinName(name);
     setAuthToken(token || null);
+    setAccountId(acctId || null);
+    setSocketAuthToken(token || null);
   }
 
   function handleLogout() {
@@ -36,6 +42,8 @@ export default function App() {
     localStorage.removeItem('token');
     setPenguinName(null);
     setAuthToken(null);
+    setAccountId(null);
+    setSocketAuthToken(null);
     setSelectedCP(null);
   }
 
@@ -50,6 +58,7 @@ export default function App() {
       <MainMenu
         penguinName={penguinName}
         authToken={authToken}
+        accountId={accountId}
         onSelectCP={setSelectedCP}
         onLogout={handleLogout}
       />
