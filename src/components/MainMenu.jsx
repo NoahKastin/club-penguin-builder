@@ -187,15 +187,15 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
         <div style={{ width: '100%', padding: '16px', background: '#1a1a2e', borderRadius: '8px', fontSize: '0.9rem', lineHeight: '1.5', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
             <strong>What is "a Club Penguin"?</strong>
-            <div style={{ color: '#ccc' }}>A Club Penguin is a multiplayer social game — essentially a chatroom with a visual, spatial layer on top. Players walk around rooms as penguins, chat with speech bubbles, and explore. This platform lets anyone with an account create and customize his/her own.</div>
+            <div style={{ color: '#ccc' }}>A Club Penguin is a multiplayer social game; essentially a chatroom with a visual, spatial layer on top. Players walk around rooms as penguins, chat with speech bubbles, and explore. This platform lets anyone with an account create and customize his/her own.</div>
           </div>
           <div>
             <strong>Is this legal?</strong>
-            <div style={{ color: '#ccc' }}>Yes. The original Club Penguin was shut down by Disney in 2017 and the trademark is not active in most regions. This is an independent, open-source platform for building new Club Penguin-style games — it does not copy or distribute any Disney assets.</div>
+            <div style={{ color: '#ccc' }}>Yes. The original Club Penguin was shut down by Disney in 2017 and the trademark is not active in most regions. This is an independent, open-source platform for building new Club Penguin-style games; it does not copy or distribute any Disney assets.</div>
           </div>
           <div>
             <strong>What is a "party"?</strong>
-            <div style={{ color: '#ccc' }}>When a dev edits his/her Club Penguin, the update is called a "party." Each party can have an optional name (e.g. "Holiday decorations" or "New room added") that shows up in the party log — the 🎉 button next to each Club Penguin on the main menu.</div>
+            <div style={{ color: '#ccc' }}>When a dev edits his/her Club Penguin, the update is called a "party." Each party can have an optional name (e.g. "Holiday Party" or "New Room Party," though "Party" doesn't have to be in the name; you could just write something like "Holiday") that shows up in the party log; the 🎉 button next to each Club Penguin on the main menu.</div>
           </div>
           <div>
             <strong>What are the default room and exit dimensions?</strong>

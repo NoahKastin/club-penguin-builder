@@ -79,10 +79,10 @@
 - [x] Deploy to Fly.io
 - [x] Production build script (Vite builds frontend, Express serves it + runs Socket.io)
 - [x] Environment-based config (port, CORS origin)
-- [ ] Geo-restrict to regions where the "Club Penguin" trademark is not active
+- [x] Geo-restrict to regions where the "Club Penguin" trademark is active (Canada, UK) via geoip-lite
 - [x] Containerized via Docker on Fly.io
 - [x] Remove the Outdoors test Club Penguin
-- [ ] Caching + CDN for static assets to reduce bandwidth costs
+- [x] Cache headers for static assets (add CDN like Cloudflare later if needed at scale)
 - [x] Auto-stop server if all online players are idle (Fly.io auto_stop_machines)
 
 ## Refinement Ideas (Current PoC)

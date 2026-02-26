@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import geoip from 'geoip-lite';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession } from './accounts.js';
 import { launchParty, getPartyLog } from './parties.js';
@@ -18,7 +19,20 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+const BLOCKED_COUNTRIES = ['CA', 'GB'];
+
 const app = express();
+
+// Geo-restriction: block countries with active Club Penguin trademarks
+app.use((req, res, next) => {
+  const ip = req.headers['fly-client-ip'] || req.ip;
+  const geo = geoip.lookup(ip);
+  if (geo && BLOCKED_COUNTRIES.includes(geo.country)) {
+    return res.status(451).send('Club Penguin Builder is not available in your region due to trademark restrictions.');
+  }
+  next();
+});
+
 app.use(express.json());
 app.use('/assets', express.static(join(__dirname, '..', 'dist', 'assets'), {
   maxAge: '1y',

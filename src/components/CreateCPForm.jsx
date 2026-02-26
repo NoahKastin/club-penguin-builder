@@ -391,7 +391,7 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
           <input
             style={styles.input}
             type="text"
-            placeholder="e.g. New room added, Holiday decorations..."
+            placeholder="e.g. Holiday Party, New Room Party..."
             value={partyName}
             onChange={(e) => setPartyName(e.target.value)}
             maxLength={60}
