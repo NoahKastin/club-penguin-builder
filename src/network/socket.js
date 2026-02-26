@@ -2,6 +2,13 @@ import { io } from 'socket.io-client';
 
 const socket = io();
 
+// Rejoin on reconnect
+socket.on('connect', () => {
+  if (pendingJoinData && ready) {
+    socket.emit('join', pendingJoinData);
+  }
+});
+
 const listeners = {
   roomState: [],
   penguinJoined: [],

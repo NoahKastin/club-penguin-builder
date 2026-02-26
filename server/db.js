@@ -42,6 +42,14 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS account_preferences (
+    account_id TEXT PRIMARY KEY,
+    sort_field TEXT NOT NULL DEFAULT 'name',
+    sort_dir TEXT NOT NULL DEFAULT 'asc'
+  )
+`);
+
 // Migration: add creator_id to club_penguins
 const columns = db.prepare("PRAGMA table_info(club_penguins)").all().map(c => c.name);
 if (!columns.includes('creator_id')) {

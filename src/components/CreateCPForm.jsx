@@ -139,7 +139,7 @@ function makeRoomId() {
 export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
   const [cpName, setCpName] = useState('');
   const [rooms, setRooms] = useState([
-    { tempId: 'room_1', name: 'Lobby', bgColor: '#333333', spawn: true, exits: [] },
+    { tempId: 'room_1', name: 'Lobby', bgColor: '#333333', hidden: false, exits: [] },
   ]);
   const [partyName, setPartyName] = useState('');
   const [error, setError] = useState('');
@@ -155,7 +155,7 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
           tempId: r.id,
           name: r.name,
           bgColor: r.bgColor,
-          spawn: r.spawn,
+          hidden: r.hidden || false,
           exits: (r.exits || []).map(e => ({
             targetRoom: e.targetRoom,
             label: e.label,
@@ -178,16 +178,13 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
   }, [editCpId]);
 
   function addRoom() {
-    setRooms([...rooms, { tempId: makeRoomId(), name: '', bgColor: '#333333', spawn: false, exits: [] }]);
+    setRooms([...rooms, { tempId: makeRoomId(), name: '', bgColor: '#333333', hidden: false, exits: [] }]);
   }
 
   function removeRoom(index) {
     if (rooms.length <= 1) return;
     const removed = rooms[index];
     const updated = rooms.filter((_, i) => i !== index);
-    if (removed.spawn && updated.length > 0) {
-      updated[0] = { ...updated[0], spawn: true };
-    }
     for (let i = 0; i < updated.length; i++) {
       updated[i] = {
         ...updated[i],
@@ -200,11 +197,6 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
   function updateRoom(index, field, value) {
     const updated = [...rooms];
     updated[index] = { ...updated[index], [field]: value };
-    if (field === 'spawn' && value) {
-      for (let i = 0; i < updated.length; i++) {
-        if (i !== index) updated[i] = { ...updated[i], spawn: false };
-      }
-    }
     setRooms(updated);
   }
 
@@ -247,13 +239,18 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
       return;
     }
 
+    if (rooms.every(r => r.hidden)) {
+      setError('At least one room must not be hidden');
+      return;
+    }
+
     const roomsObj = {};
     for (const room of rooms) {
       roomsObj[room.tempId] = {
         id: room.tempId,
         name: room.name.trim(),
         bgColor: room.bgColor,
-        spawn: room.spawn,
+        hidden: room.hidden || false,
         exits: room.exits.map(e => ({
           targetRoom: e.targetRoom,
           label: e.label || rooms.find(r => r.tempId === e.targetRoom)?.name || e.targetRoom,
@@ -312,11 +309,11 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
             <div style={styles.row}>
               <label style={{ fontSize: '0.85rem', cursor: 'pointer' }}>
                 <input
-                  type="radio"
-                  checked={room.spawn}
-                  onChange={() => updateRoom(ri, 'spawn', true)}
+                  type="checkbox"
+                  checked={room.hidden}
+                  onChange={() => updateRoom(ri, 'hidden', !room.hidden)}
                 />{' '}
-                Spawn
+                Hidden
               </label>
               {rooms.length > 1 && (
                 <button style={styles.dangerButton} onClick={() => removeRoom(ri)}>Remove</button>

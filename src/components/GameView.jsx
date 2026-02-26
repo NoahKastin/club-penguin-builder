@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import ChatLog from './ChatLog';
 import ChatInput from './ChatInput';
+import PlayerList from './PlayerList';
 import { createGame, destroyGame } from '../game/PhaserGame';
 import * as socket from '../network/socket';
 
@@ -57,6 +58,7 @@ export default function GameView({ penguinName, authToken, cpId, onBack }) {
         <button style={styles.backButton} onClick={handleBack}>Back to Menu</button>
       </div>
       <div ref={gameRef} style={styles.gameContainer} />
+      <PlayerList />
       <ChatLog />
       <ChatInput />
     </div>

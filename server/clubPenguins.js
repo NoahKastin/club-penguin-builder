@@ -18,7 +18,7 @@ function rowToCP(row) {
 
 export function createClubPenguin(name, rooms, creatorId = null) {
   const id = 'cp_' + (nextId++);
-  const spawnRoom = Object.keys(rooms).find(k => rooms[k].spawn) || Object.keys(rooms)[0];
+  const spawnRoom = Object.keys(rooms).find(k => !rooms[k].hidden) || Object.keys(rooms)[0];
   const createdAt = Date.now();
   db.prepare('INSERT INTO club_penguins (id, name, rooms, spawn_room, created_at, creator_id) VALUES (?, ?, ?, ?, ?, ?)').run(id, name, JSON.stringify(rooms), spawnRoom, createdAt, creatorId);
   return { id, name, rooms, spawnRoom, creatorId, createdAt };
@@ -30,19 +30,24 @@ export function getClubPenguin(cpId) {
 }
 
 export function updateClubPenguin(cpId, name, rooms) {
-  const spawnRoom = Object.keys(rooms).find(k => rooms[k].spawn) || Object.keys(rooms)[0];
+  const spawnRoom = Object.keys(rooms).find(k => !rooms[k].hidden) || Object.keys(rooms)[0];
   const result = db.prepare('UPDATE club_penguins SET name = ?, rooms = ?, spawn_room = ? WHERE id = ?').run(name, JSON.stringify(rooms), spawnRoom, cpId);
   if (result.changes === 0) return null;
   return { id: cpId, name, rooms, spawnRoom };
 }
 
 export function listClubPenguins() {
-  const rows = db.prepare('SELECT * FROM club_penguins').all();
+  const rows = db.prepare(`
+    SELECT cp.*, (SELECT MAX(launched_at) FROM parties WHERE cp_id = cp.id) AS latest_party
+    FROM club_penguins cp
+  `).all();
   return rows.map(row => ({
     id: row.id,
     name: row.name,
     roomCount: Object.keys(JSON.parse(row.rooms)).length,
     penguinCount: getPenguinCountForCP(row.id),
     creatorId: row.creator_id || null,
+    createdAt: row.created_at,
+    latestParty: row.latest_party || null,
   }));
 }

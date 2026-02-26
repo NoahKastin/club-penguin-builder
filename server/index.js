@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import geoip from 'geoip-lite';
+import db from './db.js';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession } from './accounts.js';
 import { launchParty, getPartyLog } from './parties.js';
@@ -91,6 +92,29 @@ app.get('/api/auth/me', (req, res) => {
   const account = getAccount(accountId);
   if (!account) return res.status(401).json({ error: 'Not authenticated' });
   res.json({ account });
+});
+
+// Sort preferences
+app.get('/api/auth/preferences', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+  const row = db.prepare('SELECT sort_field, sort_dir FROM account_preferences WHERE account_id = ?').get(accountId);
+  res.json(row || { sort_field: 'name', sort_dir: 'asc' });
+});
+
+app.put('/api/auth/preferences', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+  const { sort_field, sort_dir } = req.body;
+  const validFields = ['name', 'createdAt', 'latestParty', 'penguinCount', 'roomCount'];
+  const validDirs = ['asc', 'desc'];
+  if (!validFields.includes(sort_field) || !validDirs.includes(sort_dir)) {
+    return res.status(400).json({ error: 'Invalid sort options' });
+  }
+  db.prepare('INSERT INTO account_preferences (account_id, sort_field, sort_dir) VALUES (?, ?, ?) ON CONFLICT(account_id) DO UPDATE SET sort_field = ?, sort_dir = ?').run(accountId, sort_field, sort_dir, sort_field, sort_dir);
+  res.json({ sort_field, sort_dir });
 });
 
 // REST endpoint for listing Club Penguins
@@ -224,9 +248,8 @@ io.on('connection', (socket) => {
     }
 
     const roomIds = Object.keys(data.rooms);
-    const spawnRooms = roomIds.filter(k => data.rooms[k].spawn);
-    if (spawnRooms.length !== 1) {
-      return callback({ success: false, error: 'Exactly one room must be the spawn room' });
+    if (roomIds.every(k => data.rooms[k].hidden)) {
+      return callback({ success: false, error: 'At least one room must not be hidden' });
     }
 
     // Validate exit targets
@@ -266,9 +289,8 @@ io.on('connection', (socket) => {
     }
 
     const roomIds = Object.keys(data.rooms);
-    const spawnRooms = roomIds.filter(k => data.rooms[k].spawn);
-    if (spawnRooms.length !== 1) {
-      return callback({ success: false, error: 'Exactly one room must be the spawn room' });
+    if (roomIds.every(k => data.rooms[k].hidden)) {
+      return callback({ success: false, error: 'At least one room must not be hidden' });
     }
 
     for (const roomId of roomIds) {
