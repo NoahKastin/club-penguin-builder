@@ -79,7 +79,7 @@
 - [x] Deploy to Fly.io
 - [x] Production build script (Vite builds frontend, Express serves it + runs Socket.io)
 - [x] Environment-based config (port, CORS origin)
-- [x] Geo-restrict to regions where the "Club Penguin" trademark is active (Canada, UK) via geoip-lite
+- [x] Geo-restrict to regions where the "Club Penguin" trademark is active (Canada, UK) via geoip-lite (requires Node 24+; Docker uses Node 20 — upgrade if issues arise)
 - [x] Containerized via Docker on Fly.io
 - [x] Remove the Outdoors test Club Penguin
 - [x] Cache headers for static assets (add CDN like Cloudflare later if needed at scale)
