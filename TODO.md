@@ -19,16 +19,18 @@
 - [x] Mobile-friendly responsive layout
 - [x] Main menu with logo, Club Penguin list, and create/edit forms
 - [x] Multi-CP support (anyone can create and join Club Penguins)
-- [x] Logo (traffic-light colored "Club Penguin Builder")
+- [x] Logo (traffic-light colored "Club Penguin Builder") + favicon
 - [x] CC-BY 4.0 license
 - [x] Persistent storage (SQLite via better-sqlite3) so Club Penguins survive server restarts
+- [x] Accounts (optional), dev permissions, party log, FAQ (see sections below for details)
+- [x] Deployed to Fly.io with Docker, geo-restriction, cache headers, auto-stop (see Deployment section)
 
 ## Room Editor
 - [x] Form-based UI to create/edit rooms (name, background color, exits)
 - [ ] Place exits visually (drag to position, set target room)
 - [ ] Exits hidden by default (uploaded items/backgrounds cover them)
 - [ ] Toggle: hidden room (penguins can't randomly spawn there)
-- [ ] Toggle: party planning enabled (decoration by devs with uploaded items)
+- [ ] Toggle: party planning enabled (decoration by non-devs with uploaded items)
 
 ## Item System & Catalog
 - [ ] Central item marketplace ("Catalog") for uploading/downloading items
