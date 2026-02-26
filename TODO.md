@@ -73,6 +73,7 @@
 - [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
 - [x] Favicon: based on the "CPB" acronym from the logo
 - [x] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)
+- [ ] Club Penguin sort orders remembered per account: ascending or descending by creation date, latest party date, penguin count, room count, or alphabetical
 
 ## Deployment
 - [x] Deploy to Fly.io

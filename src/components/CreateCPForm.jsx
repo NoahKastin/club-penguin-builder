@@ -214,7 +214,7 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
     const defaultTarget = otherRooms.length > 0 ? otherRooms[0].tempId : '';
     updated[roomIndex] = {
       ...updated[roomIndex],
-      exits: [...updated[roomIndex].exits, { targetRoom: defaultTarget, label: '', x: 10, y: 200, width: 80, height: 120 }],
+      exits: [...updated[roomIndex].exits, { targetRoom: defaultTarget, label: '', x: 10, y: 200, width: 100, height: 100 }],
     };
     setRooms(updated);
   }
@@ -403,7 +403,7 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
 
       <div style={styles.buttonRow}>
         <button style={{ ...styles.button, background: '#666' }} onClick={onCancel}>Cancel</button>
-        <button style={styles.button} onClick={handleSubmit}>{editCpId ? 'Save' : 'Create'}</button>
+        <button style={styles.button} onClick={handleSubmit}>{editCpId ? 'Party' : 'Create'}</button>
       </div>
     </div>
   );

@@ -34,6 +34,14 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )
+`);
+
 // Migration: add creator_id to club_penguins
 const columns = db.prepare("PRAGMA table_info(club_penguins)").all().map(c => c.name);
 if (!columns.includes('creator_id')) {

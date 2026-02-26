@@ -233,7 +233,7 @@ io.on('connection', (socket) => {
     // Auth check: must be logged in and be the creator
     const editorAccountId = data.token ? getSession(data.token) : null;
     if (!editorAccountId) {
-      return callback({ success: false, error: 'You must be logged in to edit a Club Penguin' });
+      return callback({ success: false, error: 'You must be logged in to throw a party' });
     }
     const existingCp = getClubPenguin(data.id);
     if (existingCp && existingCp.creatorId && existingCp.creatorId !== editorAccountId) {
