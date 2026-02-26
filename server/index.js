@@ -20,6 +20,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(express.json());
+app.use('/assets', express.static(join(__dirname, '..', 'dist', 'assets'), {
+  maxAge: '1y',
+  immutable: true,
+}));
 app.use(express.static(join(__dirname, '..', 'dist')));
 
 const httpServer = createServer(app);
