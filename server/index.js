@@ -176,7 +176,11 @@ io.on('connection', (socket) => {
       io.emit('clubPenguinUpdated', cpSummary(existing.cpId));
     }
 
-    const penguin = addPenguin(socket.id, name, cpId, cp.spawnRoom, accountId);
+    const visibleRooms = Object.keys(cp.rooms).filter(k => !cp.rooms[k].hidden);
+    const spawnRoom = visibleRooms.length > 0
+      ? visibleRooms[Math.floor(Math.random() * visibleRooms.length)]
+      : cp.spawnRoom;
+    const penguin = addPenguin(socket.id, name, cpId, spawnRoom, accountId);
 
     socket.emit('roomState', {
       room: cp.rooms[penguin.roomId],

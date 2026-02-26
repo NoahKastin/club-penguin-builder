@@ -83,6 +83,7 @@ const styles = {
 
 export default function MainMenu({ penguinName, authToken, accountId, onSelectCP, onLogout }) {
   const [clubPenguins, setClubPenguins] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editingCpId, setEditingCpId] = useState(null);
   const [partyLogCpId, setPartyLogCpId] = useState(null);
@@ -94,7 +95,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
   useEffect(() => {
     fetch('/api/clubpenguins')
       .then(r => r.json())
-      .then(setClubPenguins);
+      .then(cps => { setClubPenguins(cps); setLoading(false); });
 
     if (authToken) {
       fetch('/api/auth/preferences', { headers: { Authorization: `Bearer ${authToken}` } })
@@ -197,7 +198,8 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
             </button>
           </div>
         </div>
-        {clubPenguins.length === 0 && (
+        {loading && <div style={styles.empty}>Loading...</div>}
+        {!loading && clubPenguins.length === 0 && (
           <div style={styles.empty}>No Club Penguins yet!</div>
         )}
         {sortedCPs().map(cp => (
