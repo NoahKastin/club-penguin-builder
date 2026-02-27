@@ -8,7 +8,7 @@ import db from './db.js';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession } from './accounts.js';
 import { launchParty, getPartyLog } from './parties.js';
-import { createCatalogItem, getCatalogItem, listCatalogItems } from './catalog.js';
+import { createCatalogItem, getCatalogItem, listCatalogItems, catalogItemExistsByName } from './catalog.js';
 import { loadInventory, saveInventoryItem, setEquipped } from './inventory.js';
 import {
   addPenguin,
@@ -159,6 +159,7 @@ app.post('/api/catalog', (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   if (!image || !image.startsWith('data:image/')) return res.status(400).json({ error: 'Image must be a data URL' });
   if (image.length > 500 * 1024) return res.status(400).json({ error: 'Image too large (max 500KB)' });
+  if (catalogItemExistsByName(name.trim())) return res.status(409).json({ error: 'An item with that name already exists' });
 
   // Default attribution to uploader's username if not provided
   let attr = (attribution || '').trim();

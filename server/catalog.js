@@ -16,7 +16,11 @@ export function getCatalogItem(id) {
   return { id: row.id, name: row.name, image: row.image, uploaderId: row.uploader_id, attribution: row.attribution || '', createdAt: row.created_at };
 }
 
+export function catalogItemExistsByName(name) {
+  return !!db.prepare('SELECT 1 FROM catalog_items WHERE name = ?').get(name);
+}
+
 export function listCatalogItems() {
-  const rows = db.prepare('SELECT id, name, image, uploader_id, created_at FROM catalog_items ORDER BY created_at DESC').all();
+  const rows = db.prepare('SELECT id, name, image, uploader_id, attribution, created_at FROM catalog_items ORDER BY created_at DESC').all();
   return rows.map(row => ({ id: row.id, name: row.name, image: row.image, uploaderId: row.uploader_id, attribution: row.attribution || '', createdAt: row.created_at }));
 }
