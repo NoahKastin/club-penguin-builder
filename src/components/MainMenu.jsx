@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as socket from '../network/socket';
 import CreateCPForm from './CreateCPForm';
+import Catalog from './Catalog';
 
 const styles = {
   container: {
@@ -89,6 +90,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
   const [partyLogCpId, setPartyLogCpId] = useState(null);
   const [partyLog, setPartyLog] = useState([]);
   const [showFaq, setShowFaq] = useState(false);
+  const [showCatalog, setShowCatalog] = useState(false);
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
 
@@ -152,6 +154,10 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
     return sorted;
   }
 
+  if (showCatalog) {
+    return <Catalog authToken={authToken} penguinName={penguinName} onBack={() => setShowCatalog(false)} />;
+  }
+
   if (showCreate || editingCpId) {
     return (
       <CreateCPForm
@@ -164,7 +170,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
 
   return (
     <div style={styles.container}>
-      <img src="/logo.svg" alt="Club Penguin Builder" style={styles.logo} />
+      <img src="/logo.svg" alt="Club Penguin Builder" style={{ ...styles.logo, filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.6))' }} />
 
       <div style={styles.welcome}>
         Welcome, {penguinName}!
@@ -237,15 +243,19 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
         ))}
       </div>
 
-      {authToken && (
-        <button style={styles.createButton} onClick={() => setShowCreate(true)}>
-          Create Club Penguin
+      <div style={{ display: 'flex', gap: '12px' }}>
+        {authToken && (
+          <button style={styles.createButton} onClick={() => setShowCreate(true)}>
+            Build
+          </button>
+        )}
+        <button style={styles.createButton} onClick={() => setShowCatalog(true)}>
+          Catalog
         </button>
-      )}
-
-      <button style={{ ...styles.editButton, fontSize: '0.95rem', padding: '8px 16px' }} onClick={() => setShowFaq(!showFaq)}>
-        {showFaq ? 'Hide FAQ' : 'FAQ'}
-      </button>
+        <button style={{ ...styles.createButton, background: '#555' }} onClick={() => setShowFaq(!showFaq)}>
+          {showFaq ? 'Hide Help' : 'Help'}
+        </button>
+      </div>
 
       {showFaq && (
         <div style={{ width: '100%', padding: '16px', background: '#1a1a2e', borderRadius: '8px', fontSize: '0.9rem', lineHeight: '1.5', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -262,8 +272,12 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
             <div style={{ color: '#ccc' }}>When a dev edits his/her Club Penguin, the update is called a "party." Each party can have an optional name (e.g. "Holiday Party" or "New Room Party," though "Party" doesn't have to be in the name; you could just write something like "Holiday") that shows up in the party log; the 🎉 button next to each Club Penguin on the main menu.</div>
           </div>
           <div>
-            <strong>What are the default room and exit dimensions?</strong>
-            <div style={{ color: '#ccc' }}>Rooms are 800×600 pixels. Exits default to 100×100 pixels. All coordinates and sizes are relative to the room canvas.</div>
+            <strong>What dimensions should I know for building and uploading?</strong>
+            <div style={{ color: '#ccc' }}>
+              Rooms are 800×600 pixels. Exits default to 100×100 pixels. All coordinates and sizes are relative to the room canvas.<br /><br />
+              The penguin sprite is roughly a 40×40 pixel rectangle. Wear offsets for collectible items are relative to the penguin's center, and the default wear size is 40×40. For a full-body costume or color, use wear size 40×40 with offset (0, 0). For a hat, try a negative Y offset (e.g. 0, −15). For a pin, try offset (−15, −15) at a size like 10×10.<br /><br />
+              Catalog images can be any size — they get scaled to whatever dimensions you set when placing them in a room. For room backgrounds, place an item at position (0, 0) with size 800×600.
+            </div>
           </div>
           <div>
             <strong>What features are coming next?</strong>

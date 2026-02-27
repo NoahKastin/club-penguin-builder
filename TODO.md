@@ -33,20 +33,24 @@
 - [ ] Toggle: party planning enabled (decoration by non-devs with uploaded items)
 
 ## Item System & Catalog
-- [ ] Central item marketplace ("Catalog") for uploading/downloading items
-- [ ] Item upload flow (image + metadata)
+- [x] Central item marketplace ("Catalog") for uploading/downloading items
+- [x] Item upload flow (image + metadata)
 - [ ] AI guardrail for uploaded items (copyright check against Club Penguin Archive, block porn/living people/etc.)
 - [ ] Items can be free or paywalled
 - [ ] Uploaders can always use their own items
 - [ ] Bundle items into "games" (specific location configurations of items, e.g. beans placed into a Mancala board)
 
 ## Item Behaviors (per room)
-- [ ] Collectible by penguins (pins, colors/sprites, clothes, igloo furniture)
+- [x] Collectible by penguins — two future categories:
+  - Clothes (render on penguins): pins, colors/sprites, costumes, hats, etc.
+  - Igloo furniture (placed in igloos, does not render on penguins)
 - [ ] Draggable by penguins
+- [ ] Resizable items within rooms
 - [ ] Physics: skid/bounce, gravity toward a location
 - [ ] Block penguin movement
-- [ ] Clothes equip without regard for item slots (later-equipped goes on top); puffles are a subset of clothes
+- [x] Clothes equip without regard for item slots (later-equipped goes on top); puffles are a subset of clothes
 - [ ] Configurable memory limit for clothes per penguin
+- [x] Collectible items display with heavy white border; draggable items (future) display with heavy black border; behaviors are mutually exclusive
 
 ## Moderation
 - [ ] Rules stated per Club Penguin
@@ -64,7 +68,7 @@
 - [x] Upload/publish Club Penguins to the platform
 - [x] Club Penguin updates ("parties") from devs
 - [x] Party log per server: saves when parties were launched with their name (entered via the create/edit CP form); users can view the log by clicking an icon next to each server in the CP list
-- [ ] Compact serialization: rooms and items stored as ID + coordinates/size (no duplicated asset data)
+- [x] Compact serialization: rooms and items stored as ID + coordinates/size (no duplicated asset data)
 - [ ] Funding model: free tier, then beyond that supporters pitch in the maximum they're willing to pay (one-time or monthly); actual costs (Fly.io charges + platform cut) are divided evenly across the total money offered
 - [ ] Separate tiers for paying to support the server vs. paying to support those who are supporting the server; moderation-choice perks can be gated behind either
 - [ ] Supporters are not synonymous with devs (someone can pay to support without having rights to adjust the CP, though dev access itself could be a perk for supporting)
@@ -88,8 +92,8 @@
 - [x] Auto-stop server if all online players are idle (Fly.io auto_stop_machines)
 
 ## Refinement Ideas (Current PoC)
-- [ ] Penguin sprites instead of emoji (customizable colors)
-- [ ] Room backgrounds via background-sized or resizable items (no special "room background" concept)
+- [x] Penguin sprites instead of emoji (customizable colors) — via collectible catalog items with wear position/size
+- [x] Room backgrounds via background-sized or resizable items (no special "room background" concept)
 - [x] Penguin list / "who's here" sidebar
-- [ ] Server-side validation (name length, chat rate limiting)
+- [x] Server-side validation (name length, chat rate limiting)
 - [x] Reconnection handling (rejoin room on socket reconnect)

@@ -15,6 +15,10 @@ const listeners = {
   penguinLeft: [],
   penguinMoved: [],
   chatMessage: [],
+  chatError: [],
+  itemCollected: [],
+  inventoryUpdated: [],
+  penguinClothesChanged: [],
   clubPenguinCreated: [],
   clubPenguinUpdated: [],
 };
@@ -50,6 +54,18 @@ export function chat(message) {
 
 export function changeRoom(roomId) {
   socket.emit('changeRoom', roomId);
+}
+
+export function collectItem(data) {
+  socket.emit('collectItem', data);
+}
+
+export function equipItem(inventoryIndex) {
+  socket.emit('equipItem', inventoryIndex);
+}
+
+export function unequipItem(clothesIndex) {
+  socket.emit('unequipItem', clothesIndex);
 }
 
 let storedToken = null;

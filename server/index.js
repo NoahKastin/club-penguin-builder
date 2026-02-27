@@ -8,11 +8,16 @@ import db from './db.js';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession } from './accounts.js';
 import { launchParty, getPartyLog } from './parties.js';
+import { createCatalogItem, getCatalogItem, listCatalogItems } from './catalog.js';
+import { loadInventory, saveInventoryItem, setEquipped } from './inventory.js';
 import {
   addPenguin,
   removePenguin,
   getPenguin,
   movePenguin,
+  addToInventory,
+  equipItem,
+  unequipItem,
   changePenguinRoom,
   getPenguinsInCPRoom,
   getPenguinCountForCP,
@@ -34,7 +39,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use('/assets', express.static(join(__dirname, '..', 'dist', 'assets'), {
   maxAge: '1y',
   immutable: true,
@@ -134,11 +139,58 @@ app.get('/api/clubpenguins/:id/parties', (req, res) => {
   res.json(getPartyLog(req.params.id));
 });
 
+// Catalog endpoints
+app.get('/api/catalog', (req, res) => {
+  res.json(listCatalogItems());
+});
+
+app.get('/api/catalog/:id', (req, res) => {
+  const item = getCatalogItem(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Not found' });
+  res.json(item);
+});
+
+app.post('/api/catalog', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'You must be logged in to upload items' });
+
+  const { name, image, attribution } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+  if (!image || !image.startsWith('data:image/')) return res.status(400).json({ error: 'Image must be a data URL' });
+  if (image.length > 500 * 1024) return res.status(400).json({ error: 'Image too large (max 500KB)' });
+
+  // Default attribution to uploader's username if not provided
+  let attr = (attribution || '').trim();
+  if (!attr) {
+    const account = getAccount(accountId);
+    if (account) attr = account.username;
+  }
+
+  const item = createCatalogItem(name.trim(), image, accountId, attr);
+  res.json(item);
+});
+
 // Broadcast to all sockets whose penguin is in the given CP + room.
 function cpSummary(cpId) {
   const cp = getClubPenguin(cpId);
   if (!cp) return null;
   return { id: cp.id, name: cp.name, roomCount: Object.keys(cp.rooms).length, penguinCount: getPenguinCountForCP(cpId), creatorId: cp.creatorId || null };
+}
+
+// Resolve catalog item images for a room's items
+function resolveCatalogItems(room) {
+  if (!room.items || room.items.length === 0) return {};
+  const catalogItems = {};
+  for (const item of room.items) {
+    if (!catalogItems[item.catalogId]) {
+      const catItem = getCatalogItem(item.catalogId);
+      if (catItem) {
+        catalogItems[item.catalogId] = { name: catItem.name, image: catItem.image };
+      }
+    }
+  }
+  return catalogItems;
 }
 
 function broadcastToCPRoom(cpId, roomId, event, data, excludeSocketId = null) {
@@ -151,8 +203,12 @@ function broadcastToCPRoom(cpId, roomId, event, data, excludeSocketId = null) {
   }
 }
 
+// Chat rate limiting: per-socket tracking
+const chatRateLimits = new Map();
+
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
+  chatRateLimits.set(socket.id, []);
 
   socket.on('join', ({ name, cpId, token }) => {
     const cp = getClubPenguin(cpId);
@@ -168,6 +224,9 @@ io.on('connection', (socket) => {
       }
     }
 
+    // Validate name length
+    if (!name || name.length < 1 || name.length > 20) return;
+
     // If already in a CP, leave it first
     const existing = getPenguin(socket.id);
     if (existing) {
@@ -182,17 +241,38 @@ io.on('connection', (socket) => {
       : cp.spawnRoom;
     const penguin = addPenguin(socket.id, name, cpId, spawnRoom, accountId);
 
+    // Restore saved inventory for logged-in users
+    if (accountId) {
+      const saved = loadInventory(accountId);
+      for (const item of saved) {
+        penguin.inventory.push(item);
+        if (item.equipped) {
+          penguin.clothes.push(item);
+        }
+      }
+    }
+
+    const room = cp.rooms[penguin.roomId];
     socket.emit('roomState', {
-      room: cp.rooms[penguin.roomId],
+      room,
       penguins: getPenguinsInCPRoom(cpId, penguin.roomId),
       you: penguin.id,
+      catalogItems: resolveCatalogItems(room),
     });
+
+    // Send inventory to the joining player
+    if (penguin.inventory.length > 0) {
+      socket.emit('inventoryUpdated', { inventory: penguin.inventory, clothes: penguin.clothes });
+    }
 
     broadcastToCPRoom(cpId, penguin.roomId, 'penguinJoined', penguin, socket.id);
     io.emit('clubPenguinUpdated', cpSummary(cpId));
   });
 
   socket.on('move', ({ x, y }) => {
+    // Clamp to room bounds
+    x = Math.max(0, Math.min(800, x));
+    y = Math.max(0, Math.min(600, y));
     const penguin = movePenguin(socket.id, x, y);
     if (penguin) {
       broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinMoved', {
@@ -205,13 +285,24 @@ io.on('connection', (socket) => {
 
   socket.on('chat', (message) => {
     const penguin = getPenguin(socket.id);
-    if (penguin) {
-      broadcastToCPRoom(penguin.cpId, penguin.roomId, 'chatMessage', {
-        id: penguin.id,
-        name: penguin.name,
-        message,
-      });
+    if (!penguin) return;
+
+    // Rate limit: max 5 messages per 3 seconds
+    const now = Date.now();
+    const times = chatRateLimits.get(socket.id) || [];
+    const recent = times.filter(t => now - t < 3000);
+    if (recent.length >= 5) {
+      socket.emit('chatError', 'Slow down! Too many messages.');
+      return;
     }
+    recent.push(now);
+    chatRateLimits.set(socket.id, recent);
+
+    broadcastToCPRoom(penguin.cpId, penguin.roomId, 'chatMessage', {
+      id: penguin.id,
+      name: penguin.name,
+      message,
+    });
   });
 
   socket.on('changeRoom', (roomId) => {
@@ -227,13 +318,82 @@ io.on('connection', (socket) => {
 
     changePenguinRoom(socket.id, roomId);
 
+    const newRoom = cp.rooms[roomId];
     socket.emit('roomState', {
-      room: cp.rooms[roomId],
+      room: newRoom,
       penguins: getPenguinsInCPRoom(penguin.cpId, roomId),
       you: penguin.id,
+      catalogItems: resolveCatalogItems(newRoom),
     });
 
     broadcastToCPRoom(penguin.cpId, roomId, 'penguinJoined', penguin, socket.id);
+  });
+
+  socket.on('collectItem', ({ catalogId, wearOffsetX, wearOffsetY, wearWidth, wearHeight }) => {
+    const penguin = getPenguin(socket.id);
+    if (!penguin) return;
+
+    const catItem = getCatalogItem(catalogId);
+    if (!catItem) return;
+
+    const inventoryEntry = {
+      catalogId,
+      name: catItem.name,
+      image: catItem.image,
+      wearOffsetX: wearOffsetX || 0,
+      wearOffsetY: wearOffsetY || 0,
+      wearWidth: wearWidth || 40,
+      wearHeight: wearHeight || 40,
+    };
+
+    addToInventory(socket.id, inventoryEntry);
+
+    // Persist for logged-in users
+    if (penguin.accountId) {
+      saveInventoryItem(penguin.accountId, inventoryEntry);
+    }
+
+    socket.emit('itemCollected', { item: inventoryEntry, inventory: penguin.inventory });
+  });
+
+  socket.on('equipItem', (inventoryIndex) => {
+    const penguin = getPenguin(socket.id);
+    if (!penguin) return;
+
+    equipItem(socket.id, inventoryIndex);
+
+    // Persist equipped state for logged-in users
+    if (penguin.accountId && inventoryIndex < penguin.inventory.length) {
+      const item = penguin.inventory[inventoryIndex];
+      setEquipped(penguin.accountId, item.catalogId, item.wearOffsetX, item.wearOffsetY, item.wearWidth, item.wearHeight, true);
+    }
+
+    socket.emit('inventoryUpdated', { inventory: penguin.inventory, clothes: penguin.clothes });
+    broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinClothesChanged', {
+      id: penguin.id,
+      clothes: penguin.clothes,
+    });
+  });
+
+  socket.on('unequipItem', (clothesIndex) => {
+    const penguin = getPenguin(socket.id);
+    if (!penguin) return;
+
+    // Get item info before unequipping
+    const item = clothesIndex < penguin.clothes.length ? penguin.clothes[clothesIndex] : null;
+
+    unequipItem(socket.id, clothesIndex);
+
+    // Persist equipped state for logged-in users
+    if (penguin.accountId && item) {
+      setEquipped(penguin.accountId, item.catalogId, item.wearOffsetX, item.wearOffsetY, item.wearWidth, item.wearHeight, false);
+    }
+
+    socket.emit('inventoryUpdated', { inventory: penguin.inventory, clothes: penguin.clothes });
+    broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinClothesChanged', {
+      id: penguin.id,
+      clothes: penguin.clothes,
+    });
   });
 
   socket.on('createClubPenguin', (data, callback) => {
@@ -334,6 +494,7 @@ io.on('connection', (socket) => {
       broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinLeft', { id: penguin.id, name: penguin.name });
       io.emit('clubPenguinUpdated', cpSummary(penguin.cpId));
     }
+    chatRateLimits.delete(socket.id);
     console.log(`Disconnected: ${socket.id}`);
   });
 });

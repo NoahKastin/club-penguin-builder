@@ -9,6 +9,8 @@ export function addPenguin(socketId, name, cpId, spawnRoom, accountId = null) {
     accountId,
     x: 400,
     y: 350,
+    inventory: [], // all collected items
+    clothes: [],   // currently worn items (subset of inventory)
   };
   penguins.set(socketId, penguin);
   return penguin;
@@ -29,6 +31,43 @@ export function movePenguin(socketId, x, y) {
   if (penguin) {
     penguin.x = x;
     penguin.y = y;
+  }
+  return penguin;
+}
+
+export function addToInventory(socketId, item) {
+  const penguin = penguins.get(socketId);
+  if (penguin) {
+    const duplicate = penguin.inventory.some(i =>
+      i.catalogId === item.catalogId &&
+      i.wearOffsetX === item.wearOffsetX &&
+      i.wearOffsetY === item.wearOffsetY &&
+      i.wearWidth === item.wearWidth &&
+      i.wearHeight === item.wearHeight
+    );
+    if (!duplicate) {
+      penguin.inventory.push(item);
+    }
+  }
+  return penguin;
+}
+
+export function equipItem(socketId, inventoryIndex) {
+  const penguin = penguins.get(socketId);
+  if (penguin && inventoryIndex >= 0 && inventoryIndex < penguin.inventory.length) {
+    const item = penguin.inventory[inventoryIndex];
+    // Check if already worn (by index reference)
+    if (!penguin.clothes.some(c => c === item)) {
+      penguin.clothes.push(item);
+    }
+  }
+  return penguin;
+}
+
+export function unequipItem(socketId, clothesIndex) {
+  const penguin = penguins.get(socketId);
+  if (penguin && clothesIndex >= 0 && clothesIndex < penguin.clothes.length) {
+    penguin.clothes.splice(clothesIndex, 1);
   }
   return penguin;
 }
