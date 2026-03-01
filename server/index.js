@@ -10,6 +10,7 @@ import { createAccount, login, getAccount, createSession, getSession, deleteSess
 import { launchParty, getPartyLog } from './parties.js';
 import { createCatalogItem, getCatalogItem, listCatalogItems, catalogItemExistsByName } from './catalog.js';
 import { loadInventory, saveInventoryItem, setEquipped } from './inventory.js';
+import { moderateUpload } from './moderation.js';
 import {
   addPenguin,
   removePenguin,
@@ -199,16 +200,61 @@ app.get('/api/catalog/:id', (req, res) => {
   res.json(item);
 });
 
-app.post('/api/catalog', (req, res) => {
+app.post('/api/catalog', async (req, res) => {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   const accountId = getSession(token);
   if (!accountId) return res.status(401).json({ error: 'You must be logged in to upload items' });
 
+  // Check upload ban
+  const banExpiry = uploadBans.get(accountId);
+  if (banExpiry && Date.now() < banExpiry) {
+    const hoursLeft = Math.ceil((banExpiry - Date.now()) / 3600000);
+    return res.status(429).json({ error: `Upload access temporarily suspended. Try again in ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}.` });
+  }
+
+  // Upload rate limit: 3 per hour
+  const now = Date.now();
+  const uploads = (uploadRateLimits.get(accountId) || []).filter(t => now - t < 3600000);
+  if (uploads.length >= 3) {
+    return res.status(429).json({ error: 'Upload limit reached (3 per hour). Please try again later.' });
+  }
+
   const { name, image, attribution } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   if (!image || !image.startsWith('data:image/')) return res.status(400).json({ error: 'Image must be a data URL' });
-  if (image.length > 500 * 1024) return res.status(400).json({ error: 'Image too large (max 500KB)' });
+  if (image.length > 128 * 1024) return res.status(400).json({ error: 'Image too large (max 128KB)' });
   if (catalogItemExistsByName(name.trim())) return res.status(409).json({ error: 'An item with that name already exists' });
+
+  // Decode image to check pixel dimensions
+  try {
+    const base64Match = image.match(/^data:image\/\w+;base64,(.+)$/);
+    if (base64Match) {
+      const buf = Buffer.from(base64Match[1], 'base64');
+      const dims = getImageDimensions(buf);
+      if (dims && (dims.width > 800 || dims.height > 600)) {
+        return res.status(400).json({ error: `Image dimensions too large (${dims.width}x${dims.height}). Maximum is 800x600.` });
+      }
+    }
+  } catch (e) {
+    // If we can't parse dimensions, allow it through
+  }
+
+  // AI moderation (runs after cheap checks, before creation)
+  const modResult = await moderateUpload(image, name.trim());
+  if (!modResult.ok) {
+    // Track rejection for ban logic
+    const rejections = (uploadRejections.get(accountId) || []).filter(t => now - t < 3600000);
+    rejections.push(now);
+    uploadRejections.set(accountId, rejections);
+    if (rejections.length >= 3) {
+      uploadBans.set(accountId, now + 86400000); // 24-hour ban
+    }
+    return res.status(400).json({ error: modResult.reason });
+  }
+
+  // Track successful upload for rate limiting
+  uploads.push(now);
+  uploadRateLimits.set(accountId, uploads);
 
   // Default attribution to uploader's username if not provided
   let attr = (attribution || '').trim();
@@ -220,6 +266,32 @@ app.post('/api/catalog', (req, res) => {
   const item = createCatalogItem(name.trim(), image, accountId, attr);
   res.json(item);
 });
+
+// Parse image dimensions from buffer (supports PNG and JPEG headers)
+function getImageDimensions(buf) {
+  // PNG: bytes 16-23 contain width and height as 4-byte big-endian integers
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) {
+    return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+  }
+  // JPEG: scan for SOF0/SOF2 markers
+  if (buf[0] === 0xFF && buf[1] === 0xD8) {
+    let offset = 2;
+    while (offset < buf.length - 8) {
+      if (buf[offset] !== 0xFF) break;
+      const marker = buf[offset + 1];
+      if (marker === 0xC0 || marker === 0xC2) {
+        return { width: buf.readUInt16BE(offset + 7), height: buf.readUInt16BE(offset + 5) };
+      }
+      const segLen = buf.readUInt16BE(offset + 2);
+      offset += 2 + segLen;
+    }
+  }
+  // GIF: bytes 6-9 contain width and height as 2-byte little-endian integers
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {
+    return { width: buf.readUInt16LE(6), height: buf.readUInt16LE(8) };
+  }
+  return null;
+}
 
 // Broadcast to all sockets whose penguin is in the given CP + room.
 function cpSummary(cpId) {
@@ -252,6 +324,11 @@ function broadcastToCPRoom(cpId, roomId, event, data, excludeSocketId = null) {
     }
   }
 }
+
+// Upload rate limiting: per-account tracking
+const uploadRateLimits = new Map(); // accountId → [timestamps]
+const uploadRejections = new Map(); // accountId → [timestamps]
+const uploadBans = new Map(); // accountId → ban expiry timestamp
 
 // Chat rate limiting: per-socket tracking
 const chatRateLimits = new Map();

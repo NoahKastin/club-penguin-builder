@@ -256,7 +256,7 @@ export default function Catalog({ authToken, penguinName, onBack }) {
     setSuccess('');
     if (!name.trim()) { setError('Name is required'); return; }
     if (!imageData) { setError('Please select an image'); return; }
-    if (imageData.length > 500 * 1024) { setError('Image too large (max ~375KB file)'); return; }
+    if (imageData.length > 128 * 1024) { setError('Image too large (max 128KB)'); return; }
 
     fetch('/api/catalog', {
       method: 'POST',
