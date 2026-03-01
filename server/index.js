@@ -12,6 +12,10 @@ import { createCatalogItem, getCatalogItem, listCatalogItems, catalogItemExistsB
 import { loadInventory, saveInventoryItem, setEquipped } from './inventory.js';
 import { moderateUpload } from './moderation.js';
 import {
+  isStripeEnabled, getBundles, createCheckoutSession, handleWebhook,
+  getBalance, getTransactions, purchaseItem, canAccessItem, getPurchasedItems,
+} from './payments.js';
+import {
   addPenguin,
   removePenguin,
   getPenguin,
@@ -38,6 +42,17 @@ app.use((req, res, next) => {
     return res.status(451).send('Club Penguin Builder is not available in your region due to trademark restrictions.');
   }
   next();
+});
+
+// Stripe webhook needs raw body (must be before express.json)
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  try {
+    handleWebhook(req.body, req.headers['stripe-signature']);
+    res.json({ received: true });
+  } catch (err) {
+    console.warn('Stripe webhook error:', err.message);
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.use(express.json({ limit: '1mb' }));
@@ -166,6 +181,73 @@ app.put('/api/auth/favorites/:catalogId', (req, res) => {
   }
 });
 
+// Config endpoint (public — frontend needs Stripe publishable key)
+app.get('/api/config', (req, res) => {
+  res.json({
+    stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || null,
+    stripeEnabled: isStripeEnabled(),
+    bundles: getBundles(),
+  });
+});
+
+// Pearl balance
+app.get('/api/account/balance', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+  res.json({ pearls: getBalance(accountId) });
+});
+
+// Pearl transaction history
+app.get('/api/account/transactions', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+  res.json(getTransactions(accountId));
+});
+
+// Create Stripe checkout session for Pearl purchase
+app.post('/api/payments/create-checkout', async (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const { pearls } = req.body;
+  try {
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const result = await createCheckoutSession(accountId, pearls, origin);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Purchase a priced catalog item with Pearls
+app.post('/api/catalog/:id/purchase', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+  const result = purchaseItem(accountId, req.params.id);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  res.json({ ok: true, pearls: getBalance(accountId) });
+});
+
+// Check if user can access a priced item
+app.get('/api/catalog/:id/access', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.json({ access: false });
+  res.json({ access: canAccessItem(accountId, req.params.id) });
+});
+
+// Get all items user has purchased
+app.get('/api/account/purchases', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+  res.json(getPurchasedItems(accountId));
+});
+
 // REST endpoint for listing Club Penguins
 app.get('/api/clubpenguins', (req, res) => {
   res.json(listClubPenguins());
@@ -213,8 +295,9 @@ app.post('/api/catalog', async (req, res) => {
     return res.status(429).json({ error: 'Upload limit reached (3 per hour). Please try again later.' });
   }
 
-  const { name, image, attribution } = req.body;
+  const { name, image, attribution, price } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+  const itemPrice = Math.max(0, Math.floor(Number(price) || 0));
   if (!image || !image.startsWith('data:image/')) return res.status(400).json({ error: 'Image must be a data URL' });
   if (image.length > 128 * 1024) return res.status(400).json({ error: 'Image too large (max 128KB)' });
   if (catalogItemExistsByName(name.trim())) return res.status(409).json({ error: 'An item with that name already exists' });
@@ -257,7 +340,7 @@ app.post('/api/catalog', async (req, res) => {
     if (account) attr = account.username;
   }
 
-  const item = createCatalogItem(name.trim(), image, accountId, attr);
+  const item = createCatalogItem(name.trim(), image, accountId, attr, itemPrice);
   res.json(item);
 });
 

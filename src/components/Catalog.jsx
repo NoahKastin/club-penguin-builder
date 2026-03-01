@@ -154,11 +154,12 @@ const styles = {
   },
 };
 
-export default function Catalog({ authToken, penguinName, onBack }) {
+export default function Catalog({ authToken, accountId, penguinName, onBack }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [attribution, setAttribution] = useState(penguinName || '');
+  const [price, setPrice] = useState(0);
   const [imageData, setImageData] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -166,6 +167,8 @@ export default function Catalog({ authToken, penguinName, onBack }) {
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
   const [favorites, setFavorites] = useState(new Set());
+  const [purchases, setPurchases] = useState(new Set());
+  const [balance, setBalance] = useState(0);
 
   useEffect(() => {
     fetch('/api/catalog')
@@ -185,6 +188,12 @@ export default function Catalog({ authToken, penguinName, onBack }) {
       fetch('/api/auth/favorites', { headers: { Authorization: `Bearer ${authToken}` } })
         .then(r => r.ok ? r.json() : [])
         .then(ids => setFavorites(new Set(ids)));
+      fetch('/api/account/purchases', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : [])
+        .then(ids => setPurchases(new Set(ids)));
+      fetch('/api/account/balance', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : { pearls: 0 })
+        .then(data => setBalance(data.pearls));
     }
   }, []);
 
@@ -264,7 +273,7 @@ export default function Catalog({ authToken, penguinName, onBack }) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authToken}`,
       },
-      body: JSON.stringify({ name: name.trim(), image: imageData, attribution: attribution.trim() }),
+      body: JSON.stringify({ name: name.trim(), image: imageData, attribution: attribution.trim(), price: price || 0 }),
     })
       .then(r => r.json())
       .then(item => {
@@ -272,10 +281,33 @@ export default function Catalog({ authToken, penguinName, onBack }) {
         setItems([item, ...items]);
         setName('');
         setAttribution(penguinName || '');
+        setPrice(0);
         setImageData(null);
         setSuccess('Item added!');
       })
       .catch(() => setError('Upload failed'));
+  }
+
+  function handlePurchase(itemId) {
+    setError('');
+    fetch(`/api/catalog/${itemId}/purchase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { setError(data.error); return; }
+        setPurchases(prev => new Set([...prev, itemId]));
+        setBalance(data.pearls);
+        setSuccess('Item purchased!');
+      })
+      .catch(() => setError('Purchase failed'));
+  }
+
+  function ownsItem(item) {
+    if (item.price <= 0) return true; // free
+    if (item.uploaderId === accountId) return true; // uploader
+    return purchases.has(item.id);
   }
 
   const displayItems = sortedAndFiltered();
@@ -308,6 +340,18 @@ export default function Catalog({ authToken, penguinName, onBack }) {
               onChange={(e) => setAttribution(e.target.value)}
               maxLength={60}
             />
+          </div>
+          <div style={styles.field}>
+            <label style={styles.label}>Price (Pearls, 0 = free)</label>
+            <input
+              style={{ ...styles.input, width: '100px' }}
+              type="number"
+              min="0"
+              step="1"
+              value={price}
+              onChange={(e) => setPrice(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+            />
+            {price > 0 && <span style={{ fontSize: '0.8rem', color: '#aaa' }}>${(price * 0.05).toFixed(2)} value</span>}
           </div>
           <div style={styles.field}>
             <label style={styles.label}>Image</label>
@@ -368,6 +412,20 @@ export default function Catalog({ authToken, penguinName, onBack }) {
               <img src={item.image} alt={item.name} style={styles.thumbnail} />
               <div style={styles.itemName}>{item.name}</div>
               {item.attribution && <div style={{ fontSize: '0.75rem', color: '#888' }}>by {item.attribution}</div>}
+              {item.price > 0 ? (
+                ownsItem(item) ? (
+                  <div style={{ fontSize: '0.75rem', color: '#6bff6b' }}>Owned</div>
+                ) : (
+                  <button
+                    style={{ padding: '3px 10px', fontSize: '0.75rem', borderRadius: '4px', border: 'none', background: '#d9a04a', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                    onClick={() => handlePurchase(item.id)}
+                  >
+                    Buy ({item.price} Pearl{item.price !== 1 ? 's' : ''})
+                  </button>
+                )
+              ) : (
+                <div style={{ fontSize: '0.75rem', color: '#aaa' }}>Free</div>
+              )}
             </div>
           ))}
         </div>

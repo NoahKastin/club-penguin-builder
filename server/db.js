@@ -117,4 +117,49 @@ db.exec(`
   )
 `);
 
+// Migration: add pearl_balance to accounts
+const acctCols = db.prepare("PRAGMA table_info(accounts)").all().map(c => c.name);
+if (!acctCols.includes('pearl_balance')) {
+  db.exec('ALTER TABLE accounts ADD COLUMN pearl_balance INTEGER NOT NULL DEFAULT 0');
+}
+
+// Migration: add price to catalog_items
+const catCols2 = db.prepare("PRAGMA table_info(catalog_items)").all().map(c => c.name);
+if (!catCols2.includes('price')) {
+  db.exec('ALTER TABLE catalog_items ADD COLUMN price INTEGER NOT NULL DEFAULT 0');
+}
+
+// Pearl transactions
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pearl_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    reference TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )
+`);
+
+// Stripe checkout sessions
+db.exec(`
+  CREATE TABLE IF NOT EXISTS stripe_sessions (
+    session_id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    pearls INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )
+`);
+
+// Item purchases (tracks who bought what)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS item_purchases (
+    account_id TEXT NOT NULL,
+    catalog_id TEXT NOT NULL,
+    purchased_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    UNIQUE(account_id, catalog_id)
+  )
+`);
+
 export default db;

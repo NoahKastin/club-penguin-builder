@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as socket from '../network/socket';
 import CreateCPForm from './CreateCPForm';
 import Catalog from './Catalog';
+import PearlShop from './PearlShop';
 
 const styles = {
   container: {
@@ -91,10 +92,18 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
   const [partyLog, setPartyLog] = useState([]);
   const [showFaq, setShowFaq] = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [showPearlShop, setShowPearlShop] = useState(false);
+  const [pearlBalance, setPearlBalance] = useState(null);
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
 
   useEffect(() => {
+    // Auto-open Pearl Shop on Stripe redirect
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') && authToken) {
+      setShowPearlShop(true);
+    }
+
     fetch('/api/clubpenguins')
       .then(r => r.json())
       .then(cps => { setClubPenguins(cps); setLoading(false); });
@@ -108,6 +117,9 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
             setSortDir(prefs.sort_dir);
           }
         });
+      fetch('/api/account/balance', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setPearlBalance(data.pearls); });
     }
 
     function onCreated(cp) {
@@ -154,8 +166,12 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
     return sorted;
   }
 
+  if (showPearlShop) {
+    return <PearlShop authToken={authToken} onBack={() => { setShowPearlShop(false); /* refresh balance */ if (authToken) fetch('/api/account/balance', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.ok ? r.json() : null).then(data => { if (data) setPearlBalance(data.pearls); }); }} />;
+  }
+
   if (showCatalog) {
-    return <Catalog authToken={authToken} penguinName={penguinName} onBack={() => setShowCatalog(false)} />;
+    return <Catalog authToken={authToken} accountId={accountId} penguinName={penguinName} onBack={() => setShowCatalog(false)} />;
   }
 
   if (showCreate || editingCpId) {
@@ -175,9 +191,18 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
 
       <div style={styles.welcome}>
         Welcome, {penguinName}!
+        {authToken && pearlBalance !== null && (
+          <button
+            style={{ marginLeft: '8px', padding: '4px 10px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #d9a04a', background: 'transparent', color: '#d9a04a', cursor: 'pointer' }}
+            onClick={() => setShowPearlShop(true)}
+            title="Pearl Shop"
+          >
+            {pearlBalance} Pearl{pearlBalance !== 1 ? 's' : ''}
+          </button>
+        )}
         {authToken
-          ? <button style={{ marginLeft: '12px', padding: '4px 12px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }} onClick={onLogout}>Log Out</button>
-          : <button style={{ marginLeft: '12px', padding: '4px 12px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }} onClick={onLogout}>Sign Up / Log In</button>
+          ? <button style={{ marginLeft: '8px', padding: '4px 12px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }} onClick={onLogout}>Log Out</button>
+          : <button style={{ marginLeft: '8px', padding: '4px 12px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }} onClick={onLogout}>Sign Up / Log In</button>
         }
       </div>
 
