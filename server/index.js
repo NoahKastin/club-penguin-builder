@@ -47,13 +47,7 @@ app.use('/assets', express.static(join(__dirname, '..', 'dist', 'assets'), {
 }));
 app.use(express.static(join(__dirname, '..', 'dist')));
 
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-  },
-});
+let io;
 
 // Auth endpoints
 app.post('/api/auth/register', async (req, res) => {
@@ -333,6 +327,7 @@ const uploadBans = new Map(); // accountId → ban expiry timestamp
 // Chat rate limiting: per-socket tracking
 const chatRateLimits = new Map();
 
+function wireSocketEvents() {
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
   chatRateLimits.set(socket.id, []);
@@ -626,13 +621,43 @@ io.on('connection', (socket) => {
     console.log(`Disconnected: ${socket.id}`);
   });
 });
+} // end wireSocketEvents
 
 // Catch-all: serve index.html for client-side routing
 app.get('*', (req, res) => {
   res.sendFile(join(__dirname, '..', 'dist', 'index.html'));
 });
 
-const PORT = process.env.PORT || 3001;
-httpServer.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Called by bootstrap.js once the HTTP server is already listening
+export function setup(httpServer) {
+  // Attach Express as the request handler
+  httpServer.removeAllListeners('request');
+  httpServer.on('request', app);
+
+  // Attach Socket.io
+  io = new Server(httpServer, {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST'],
+    },
+  });
+
+  // Wire up socket events
+  wireSocketEvents();
+}
+
+// Standalone mode (npm run dev)
+if (!process.env.FLY_APP_NAME) {
+  const httpServer = createServer(app);
+  io = new Server(httpServer, {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST'],
+    },
+  });
+  wireSocketEvents();
+  const PORT = process.env.PORT || 3001;
+  httpServer.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}

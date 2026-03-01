@@ -9,4 +9,4 @@ COPY . .
 RUN npm run build
 
 EXPOSE 3001
-CMD ["node", "server/index.js"]
+CMD ["node", "server/bootstrap.js"]
