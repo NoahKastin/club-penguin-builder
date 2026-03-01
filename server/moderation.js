@@ -1,11 +1,33 @@
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
+// Lazy-load AI SDKs to avoid slowing down server startup
+let openai = null;
+let anthropic = null;
+let initialized = false;
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
-const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
+function init() {
+  if (initialized) return;
+  initialized = true;
 
-if (!openai) console.warn('OPENAI_API_KEY not set — content safety check disabled');
-if (!anthropic) console.warn('ANTHROPIC_API_KEY not set — copyright check disabled');
+  if (process.env.OPENAI_API_KEY) {
+    import('openai').then(({ default: OpenAI }) => {
+      openai = new OpenAI();
+      console.log('OpenAI moderation ready');
+    }).catch(err => console.warn('Failed to load OpenAI SDK:', err.message));
+  } else {
+    console.warn('OPENAI_API_KEY not set — content safety check disabled');
+  }
+
+  if (process.env.ANTHROPIC_API_KEY) {
+    import('@anthropic-ai/sdk').then(({ default: Anthropic }) => {
+      anthropic = new Anthropic();
+      console.log('Anthropic copyright check ready');
+    }).catch(err => console.warn('Failed to load Anthropic SDK:', err.message));
+  } else {
+    console.warn('ANTHROPIC_API_KEY not set — copyright check disabled');
+  }
+}
+
+// Initialize lazily on first call
+setTimeout(init, 0);
 
 const CATEGORY_LABELS = {
   sexual: 'sexual content',
