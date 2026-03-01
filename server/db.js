@@ -87,4 +87,34 @@ if (!catalogCols.includes('attribution')) {
   db.exec("ALTER TABLE catalog_items ADD COLUMN attribution TEXT NOT NULL DEFAULT ''");
 }
 
+// Migration: add equip_order, attribution, collected_at to account_inventory
+const invCols = db.prepare("PRAGMA table_info(account_inventory)").all().map(c => c.name);
+if (!invCols.includes('equip_order')) {
+  db.exec('ALTER TABLE account_inventory ADD COLUMN equip_order INTEGER NOT NULL DEFAULT 0');
+}
+if (!invCols.includes('attribution')) {
+  db.exec("ALTER TABLE account_inventory ADD COLUMN attribution TEXT NOT NULL DEFAULT ''");
+}
+if (!invCols.includes('collected_at')) {
+  db.exec('ALTER TABLE account_inventory ADD COLUMN collected_at INTEGER NOT NULL DEFAULT 0');
+}
+
+// Migration: add catalog/inventory sort prefs to account_preferences
+const prefCols = db.prepare("PRAGMA table_info(account_preferences)").all().map(c => c.name);
+if (!prefCols.includes('catalog_sort_field')) {
+  db.exec("ALTER TABLE account_preferences ADD COLUMN catalog_sort_field TEXT NOT NULL DEFAULT 'name'");
+  db.exec("ALTER TABLE account_preferences ADD COLUMN catalog_sort_dir TEXT NOT NULL DEFAULT 'asc'");
+  db.exec("ALTER TABLE account_preferences ADD COLUMN inv_sort_field TEXT NOT NULL DEFAULT 'name'");
+  db.exec("ALTER TABLE account_preferences ADD COLUMN inv_sort_dir TEXT NOT NULL DEFAULT 'asc'");
+}
+
+// Favorites table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS account_favorites (
+    account_id TEXT NOT NULL,
+    catalog_id TEXT NOT NULL,
+    UNIQUE(account_id, catalog_id)
+  )
+`);
+
 export default db;

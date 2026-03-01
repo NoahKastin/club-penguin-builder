@@ -213,7 +213,7 @@ function RoomPreview({ room, catalogItems }) {
 }
 
 // editCpId: if set, we're editing an existing CP
-export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
+export default function CreateCPForm({ editCpId, authToken, onCreated, onCancel }) {
   const [cpName, setCpName] = useState('');
   const [rooms, setRooms] = useState([
     { tempId: 'room_1', name: 'Lobby', bgColor: '#333333', hidden: false, exits: [], items: [] },
@@ -222,9 +222,26 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(!!editCpId);
   const [catalogItems, setCatalogItems] = useState([]);
+  const [catalogSortField, setCatalogSortField] = useState('name');
+  const [catalogSortDir, setCatalogSortDir] = useState('asc');
+  const [favorites, setFavorites] = useState(new Set());
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   useEffect(() => {
     fetch('/api/catalog').then(r => r.json()).then(setCatalogItems).catch(() => {});
+    if (authToken) {
+      fetch('/api/auth/preferences', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(prefs => {
+          if (prefs) {
+            setCatalogSortField(prefs.catalog_sort_field || 'name');
+            setCatalogSortDir(prefs.catalog_sort_dir || 'asc');
+          }
+        });
+      fetch('/api/auth/favorites', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : [])
+        .then(ids => setFavorites(new Set(ids)));
+    }
   }, []);
 
   useEffect(() => {
@@ -352,6 +369,27 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
     setRooms(updated);
   }
 
+  function sortedCatalogItems() {
+    let filtered = catalogItems;
+    if (catalogSearch.trim()) {
+      const q = catalogSearch.trim().toLowerCase();
+      filtered = filtered.filter(ci => ci.name.toLowerCase().includes(q));
+    }
+    return [...filtered].sort((a, b) => {
+      const aFav = favorites.has(a.id) ? 0 : 1;
+      const bFav = favorites.has(b.id) ? 0 : 1;
+      if (aFav !== bFav) return aFav - bFav;
+
+      let cmp = 0;
+      switch (catalogSortField) {
+        case 'name': cmp = a.name.localeCompare(b.name); break;
+        case 'createdAt': cmp = (a.createdAt || 0) - (b.createdAt || 0); break;
+        case 'attribution': cmp = (a.attribution || '').localeCompare(b.attribution || ''); break;
+      }
+      return catalogSortDir === 'desc' ? -cmp : cmp;
+    });
+  }
+
   function handleSubmit() {
     setError('');
     if (!cpName.trim()) {
@@ -414,6 +452,8 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
       });
     }
   }
+
+  const sortedCatalog = sortedCatalogItems();
 
   if (loading) {
     return <div style={styles.container}><div>Loading...</div></div>;
@@ -513,6 +553,13 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
           )}
 
           <div style={{ fontSize: '0.9rem', color: '#aaa', marginTop: '4px' }}>Items</div>
+          <input
+            style={{ ...styles.smallInput, width: '100%', marginBottom: '4px' }}
+            type="text"
+            placeholder="Search catalog items..."
+            value={catalogSearch}
+            onChange={(e) => setCatalogSearch(e.target.value)}
+          />
           {(room.items || []).map((item, ii) => (
             <div key={ii} style={styles.exitCard}>
               <div style={styles.row}>
@@ -522,9 +569,9 @@ export default function CreateCPForm({ editCpId, onCreated, onCancel }) {
                   value={item.catalogId}
                   onChange={(e) => updateItem(ri, ii, 'catalogId', e.target.value)}
                 >
-                  {catalogItems.length === 0 && <option value="">No items in catalog</option>}
-                  {catalogItems.map(ci => (
-                    <option key={ci.id} value={ci.id}>{ci.name}</option>
+                  {sortedCatalog.length === 0 && <option value="">No items in catalog</option>}
+                  {sortedCatalog.map(ci => (
+                    <option key={ci.id} value={ci.id}>{favorites.has(ci.id) ? '\u2605 ' : ''}{ci.name}</option>
                   ))}
                 </select>
                 {ii > 0 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, -1)} title="Move up (renders behind)">{'\u25B2'}</button>}

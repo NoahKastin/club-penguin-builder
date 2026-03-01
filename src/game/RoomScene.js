@@ -34,13 +34,13 @@ export default class RoomScene extends Phaser.Scene {
       if (this.pickupDialog) {
         const yes = this.pickupDialog.yesBg;
         const no = this.pickupDialog.noBg;
-        if (pointer.x >= yes.x - 30 && pointer.x <= yes.x + 30 &&
-            pointer.y >= yes.y - 12 && pointer.y <= yes.y + 12) {
+        if (pointer.x >= yes.centerX - 30 && pointer.x <= yes.centerX + 30 &&
+            pointer.y >= yes.centerY - 12 && pointer.y <= yes.centerY + 12) {
           this.handlePickupYes();
           return;
         }
-        if (pointer.x >= no.x - 30 && pointer.x <= no.x + 30 &&
-            pointer.y >= no.y - 12 && pointer.y <= no.y + 12) {
+        if (pointer.x >= no.centerX - 30 && pointer.x <= no.centerX + 30 &&
+            pointer.y >= no.centerY - 12 && pointer.y <= no.centerY + 12) {
           this.dismissPickupDialog();
           return;
         }
@@ -160,8 +160,13 @@ export default class RoomScene extends Phaser.Scene {
 
     this.pendingPickup = item;
 
-    const bg = this.add.rectangle(400, 300, 320, 120, 0x000000, 0.85)
-      .setStrokeStyle(2, 0xffffff).setDepth(20);
+    // Blue rounded-corner dialog (classic Club Penguin style)
+    const bg = this.add.graphics().setDepth(20);
+    bg.fillStyle(0x2a6cb8, 0.95);
+    bg.fillRoundedRect(240, 240, 320, 120, 16);
+    bg.lineStyle(3, 0x6aacf8);
+    bg.strokeRoundedRect(240, 240, 320, 120, 16);
+
     const text = this.add.text(400, 275, message, {
       fontSize: '14px',
       fontFamily: 'sans-serif',
@@ -170,14 +175,27 @@ export default class RoomScene extends Phaser.Scene {
       wordWrap: { width: 280 },
     }).setOrigin(0.5, 0.5).setDepth(21);
 
-    const yesBg = this.add.rectangle(360, 330, 60, 24, 0x4a90d9)
-      .setStrokeStyle(1, 0xffffff).setDepth(20);
+    const yesBg = this.add.graphics().setDepth(20);
+    yesBg.fillStyle(0x4a90d9);
+    yesBg.fillRoundedRect(330, 318, 60, 24, 8);
+    yesBg.lineStyle(1, 0x6aacf8);
+    yesBg.strokeRoundedRect(330, 318, 60, 24, 8);
+    // Store center coords for hit detection
+    yesBg.centerX = 360;
+    yesBg.centerY = 330;
+
     const yesText = this.add.text(360, 330, 'Yes', {
       fontSize: '14px', fontFamily: 'sans-serif', color: '#fff', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(21);
 
-    const noBg = this.add.rectangle(440, 330, 60, 24, 0x666666)
-      .setStrokeStyle(1, 0xffffff).setDepth(20);
+    const noBg = this.add.graphics().setDepth(20);
+    noBg.fillStyle(0x3a5570);
+    noBg.fillRoundedRect(410, 318, 60, 24, 8);
+    noBg.lineStyle(1, 0x6aacf8);
+    noBg.strokeRoundedRect(410, 318, 60, 24, 8);
+    noBg.centerX = 440;
+    noBg.centerY = 330;
+
     const noText = this.add.text(440, 330, 'No', {
       fontSize: '14px', fontFamily: 'sans-serif', color: '#fff', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(21);

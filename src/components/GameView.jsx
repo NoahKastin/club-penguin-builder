@@ -59,7 +59,7 @@ export default function GameView({ penguinName, authToken, cpId, onBack }) {
         <button style={styles.backButton} onClick={handleBack}>Back to Menu</button>
       </div>
       <div ref={gameRef} style={styles.gameContainer} />
-      <Inventory />
+      <Inventory authToken={authToken} />
       <PlayerList />
       <ChatLog />
       <ChatInput />

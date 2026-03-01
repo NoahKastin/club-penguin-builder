@@ -30,6 +30,7 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: '6px',
+    position: 'relative',
   },
   thumbnail: {
     width: '100px',
@@ -105,22 +106,138 @@ const styles = {
     color: '#888',
     fontStyle: 'italic',
   },
+  favButton: {
+    position: 'absolute',
+    top: '4px',
+    right: '4px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '1.1rem',
+    lineHeight: 1,
+    padding: '2px',
+  },
+  toolbar: {
+    width: '100%',
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: '120px',
+    padding: '6px 10px',
+    fontSize: '0.85rem',
+    borderRadius: '6px',
+    border: '1px solid #555',
+    background: '#1a1a2e',
+    color: '#eee',
+    outline: 'none',
+  },
+  sortSelect: {
+    padding: '4px 6px',
+    fontSize: '0.8rem',
+    borderRadius: '4px',
+    border: '1px solid #555',
+    background: '#2a2a3e',
+    color: '#ccc',
+  },
+  sortButton: {
+    padding: '4px 8px',
+    fontSize: '0.8rem',
+    borderRadius: '4px',
+    border: '1px solid #555',
+    background: '#2a2a3e',
+    color: '#ccc',
+    cursor: 'pointer',
+  },
 };
 
 export default function Catalog({ authToken, penguinName, onBack }) {
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [attribution, setAttribution] = useState(penguinName || '');
   const [imageData, setImageData] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortField, setSortField] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
+  const [favorites, setFavorites] = useState(new Set());
 
   useEffect(() => {
     fetch('/api/catalog')
       .then(r => r.json())
-      .then(setItems)
-      .catch(() => {});
+      .then(data => { setItems(data); setLoading(false); })
+      .catch(() => setLoading(false));
+
+    if (authToken) {
+      fetch('/api/auth/preferences', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(prefs => {
+          if (prefs) {
+            setSortField(prefs.catalog_sort_field || 'name');
+            setSortDir(prefs.catalog_sort_dir || 'asc');
+          }
+        });
+      fetch('/api/auth/favorites', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : [])
+        .then(ids => setFavorites(new Set(ids)));
+    }
   }, []);
+
+  function saveSort(field, dir) {
+    setSortField(field);
+    setSortDir(dir);
+    if (authToken) {
+      fetch('/api/auth/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ catalog_sort_field: field, catalog_sort_dir: dir }),
+      });
+    }
+  }
+
+  function toggleFavorite(catalogId) {
+    if (!authToken) return;
+    fetch(`/api/auth/favorites/${catalogId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        setFavorites(prev => {
+          const next = new Set(prev);
+          if (data.favorited) next.add(catalogId);
+          else next.delete(catalogId);
+          return next;
+        });
+      });
+  }
+
+  function sortedAndFiltered() {
+    let filtered = items;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      filtered = filtered.filter(item => item.name.toLowerCase().includes(q));
+    }
+    const sorted = [...filtered].sort((a, b) => {
+      const aFav = favorites.has(a.id) ? 0 : 1;
+      const bFav = favorites.has(b.id) ? 0 : 1;
+      if (aFav !== bFav) return aFav - bFav;
+
+      let cmp = 0;
+      switch (sortField) {
+        case 'name': cmp = a.name.localeCompare(b.name); break;
+        case 'createdAt': cmp = (a.createdAt || 0) - (b.createdAt || 0); break;
+        case 'attribution': cmp = (a.attribution || '').localeCompare(b.attribution || ''); break;
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+    return sorted;
+  }
 
   function handleFileChange(e) {
     const file = e.target.files[0];
@@ -160,6 +277,8 @@ export default function Catalog({ authToken, penguinName, onBack }) {
       })
       .catch(() => setError('Upload failed'));
   }
+
+  const displayItems = sortedAndFiltered();
 
   return (
     <div style={styles.container}>
@@ -203,12 +322,49 @@ export default function Catalog({ authToken, penguinName, onBack }) {
         </div>
       )}
 
-      {items.length === 0 ? (
-        <div style={styles.empty}>No items in the catalog yet.</div>
+      <div style={styles.toolbar}>
+        <input
+          style={styles.searchInput}
+          type="text"
+          placeholder="Search items..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          value={sortField}
+          onChange={(e) => saveSort(e.target.value, sortDir)}
+          style={styles.sortSelect}
+        >
+          <option value="name">A–Z</option>
+          <option value="createdAt">Uploaded</option>
+          <option value="attribution">Uploader</option>
+        </select>
+        <button
+          onClick={() => saveSort(sortField, sortDir === 'asc' ? 'desc' : 'asc')}
+          style={styles.sortButton}
+          title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+        >
+          {sortDir === 'asc' ? '\u25B2' : '\u25BC'}
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={styles.empty}>Loading...</div>
+      ) : displayItems.length === 0 ? (
+        <div style={styles.empty}>{search.trim() ? 'No matching items.' : 'No items in the catalog yet.'}</div>
       ) : (
         <div style={styles.grid}>
-          {items.map(item => (
+          {displayItems.map(item => (
             <div key={item.id} style={styles.itemCard}>
+              {authToken && (
+                <button
+                  style={styles.favButton}
+                  onClick={() => toggleFavorite(item.id)}
+                  title={favorites.has(item.id) ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  {favorites.has(item.id) ? '\u2605' : '\u2606'}
+                </button>
+              )}
               <img src={item.image} alt={item.name} style={styles.thumbnail} />
               <div style={styles.itemName}>{item.name}</div>
               {item.attribution && <div style={{ fontSize: '0.75rem', color: '#888' }}>by {item.attribution}</div>}

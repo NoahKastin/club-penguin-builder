@@ -104,22 +104,71 @@ app.get('/api/auth/preferences', (req, res) => {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   const accountId = getSession(token);
   if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
-  const row = db.prepare('SELECT sort_field, sort_dir FROM account_preferences WHERE account_id = ?').get(accountId);
-  res.json(row || { sort_field: 'name', sort_dir: 'asc' });
+  const row = db.prepare('SELECT sort_field, sort_dir, catalog_sort_field, catalog_sort_dir, inv_sort_field, inv_sort_dir FROM account_preferences WHERE account_id = ?').get(accountId);
+  res.json(row || { sort_field: 'name', sort_dir: 'asc', catalog_sort_field: 'name', catalog_sort_dir: 'asc', inv_sort_field: 'name', inv_sort_dir: 'asc' });
 });
 
 app.put('/api/auth/preferences', (req, res) => {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   const accountId = getSession(token);
   if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
-  const { sort_field, sort_dir } = req.body;
-  const validFields = ['name', 'createdAt', 'latestParty', 'penguinCount', 'roomCount'];
+  const { sort_field, sort_dir, catalog_sort_field, catalog_sort_dir, inv_sort_field, inv_sort_dir } = req.body;
+  const validCpFields = ['name', 'createdAt', 'latestParty', 'penguinCount', 'roomCount'];
+  const validItemFields = ['name', 'createdAt', 'attribution'];
   const validDirs = ['asc', 'desc'];
-  if (!validFields.includes(sort_field) || !validDirs.includes(sort_dir)) {
+
+  // Validate whichever fields are provided
+  if (sort_field !== undefined && (!validCpFields.includes(sort_field) || !validDirs.includes(sort_dir))) {
     return res.status(400).json({ error: 'Invalid sort options' });
   }
-  db.prepare('INSERT INTO account_preferences (account_id, sort_field, sort_dir) VALUES (?, ?, ?) ON CONFLICT(account_id) DO UPDATE SET sort_field = ?, sort_dir = ?').run(accountId, sort_field, sort_dir, sort_field, sort_dir);
-  res.json({ sort_field, sort_dir });
+  if (catalog_sort_field !== undefined && (!validItemFields.includes(catalog_sort_field) || !validDirs.includes(catalog_sort_dir))) {
+    return res.status(400).json({ error: 'Invalid catalog sort options' });
+  }
+  if (inv_sort_field !== undefined && (!validItemFields.includes(inv_sort_field) || !validDirs.includes(inv_sort_dir))) {
+    return res.status(400).json({ error: 'Invalid inventory sort options' });
+  }
+
+  // Upsert all preference columns
+  const existing = db.prepare('SELECT * FROM account_preferences WHERE account_id = ?').get(accountId);
+  const merged = {
+    sort_field: sort_field || (existing?.sort_field ?? 'name'),
+    sort_dir: sort_dir || (existing?.sort_dir ?? 'asc'),
+    catalog_sort_field: catalog_sort_field || (existing?.catalog_sort_field ?? 'name'),
+    catalog_sort_dir: catalog_sort_dir || (existing?.catalog_sort_dir ?? 'asc'),
+    inv_sort_field: inv_sort_field || (existing?.inv_sort_field ?? 'name'),
+    inv_sort_dir: inv_sort_dir || (existing?.inv_sort_dir ?? 'asc'),
+  };
+  db.prepare(
+    `INSERT INTO account_preferences (account_id, sort_field, sort_dir, catalog_sort_field, catalog_sort_dir, inv_sort_field, inv_sort_dir)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(account_id) DO UPDATE SET sort_field = ?, sort_dir = ?, catalog_sort_field = ?, catalog_sort_dir = ?, inv_sort_field = ?, inv_sort_dir = ?`
+  ).run(accountId, merged.sort_field, merged.sort_dir, merged.catalog_sort_field, merged.catalog_sort_dir, merged.inv_sort_field, merged.inv_sort_dir,
+        merged.sort_field, merged.sort_dir, merged.catalog_sort_field, merged.catalog_sort_dir, merged.inv_sort_field, merged.inv_sort_dir);
+  res.json(merged);
+});
+
+// Favorites
+app.get('/api/auth/favorites', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+  const rows = db.prepare('SELECT catalog_id FROM account_favorites WHERE account_id = ?').all(accountId);
+  res.json(rows.map(r => r.catalog_id));
+});
+
+app.put('/api/auth/favorites/:catalogId', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+  const { catalogId } = req.params;
+  const existing = db.prepare('SELECT 1 FROM account_favorites WHERE account_id = ? AND catalog_id = ?').get(accountId, catalogId);
+  if (existing) {
+    db.prepare('DELETE FROM account_favorites WHERE account_id = ? AND catalog_id = ?').run(accountId, catalogId);
+    res.json({ favorited: false });
+  } else {
+    db.prepare('INSERT INTO account_favorites (account_id, catalog_id) VALUES (?, ?)').run(accountId, catalogId);
+    res.json({ favorited: true });
+  }
 });
 
 // REST endpoint for listing Club Penguins
@@ -345,6 +394,7 @@ io.on('connection', (socket) => {
       wearOffsetY: wearOffsetY || 0,
       wearWidth: wearWidth || 40,
       wearHeight: wearHeight || 40,
+      attribution: catItem.attribution || '',
     };
 
     addToInventory(socket.id, inventoryEntry);

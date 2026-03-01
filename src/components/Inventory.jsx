@@ -6,7 +6,7 @@ const styles = {
     padding: '8px',
     background: '#2a2a3e',
     borderRadius: '6px',
-    maxHeight: '150px',
+    maxHeight: '200px',
     overflowY: 'auto',
   },
   header: {
@@ -64,12 +64,59 @@ const styles = {
     fontSize: '0.8rem',
     fontStyle: 'italic',
   },
+  toolbar: {
+    display: 'flex',
+    gap: '4px',
+    alignItems: 'center',
+    marginBottom: '6px',
+    flexWrap: 'wrap',
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: '80px',
+    padding: '3px 6px',
+    fontSize: '0.75rem',
+    borderRadius: '4px',
+    border: '1px solid #555',
+    background: '#1a1a2e',
+    color: '#eee',
+    outline: 'none',
+  },
+  sortSelect: {
+    padding: '2px 4px',
+    fontSize: '0.75rem',
+    borderRadius: '4px',
+    border: '1px solid #555',
+    background: '#1a1a2e',
+    color: '#ccc',
+  },
+  sortButton: {
+    padding: '2px 4px',
+    fontSize: '0.75rem',
+    borderRadius: '4px',
+    border: '1px solid #555',
+    background: '#1a1a2e',
+    color: '#ccc',
+    cursor: 'pointer',
+  },
+  favBadge: {
+    position: 'absolute',
+    top: '-2px',
+    left: '-2px',
+    fontSize: '0.55rem',
+    lineHeight: 1,
+    color: '#ffd700',
+  },
 };
 
-export default function Inventory() {
+export default function Inventory({ authToken }) {
   const [inventory, setInventory] = useState([]);
   const [clothes, setClothes] = useState([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sortField, setSortField] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
+  const [favorites, setFavorites] = useState(new Set());
 
   useEffect(() => {
     function onItemCollected(data) {
@@ -83,21 +130,62 @@ export default function Inventory() {
     socket.on('itemCollected', onItemCollected);
     socket.on('inventoryUpdated', onInventoryUpdated);
 
+    if (authToken) {
+      fetch('/api/auth/preferences', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(prefs => {
+          if (prefs) {
+            setSortField(prefs.inv_sort_field || 'name');
+            setSortDir(prefs.inv_sort_dir || 'asc');
+          }
+        });
+      fetch('/api/auth/favorites', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : [])
+        .then(ids => setFavorites(new Set(ids)));
+    }
+
     return () => {
       socket.off('itemCollected', onItemCollected);
       socket.off('inventoryUpdated', onInventoryUpdated);
     };
   }, []);
 
+  function saveSort(field, dir) {
+    setSortField(field);
+    setSortDir(dir);
+    if (authToken) {
+      fetch('/api/auth/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ inv_sort_field: field, inv_sort_dir: dir }),
+      });
+    }
+  }
+
+  function toggleFavorite(catalogId) {
+    if (!authToken) return;
+    fetch(`/api/auth/favorites/${catalogId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        setFavorites(prev => {
+          const next = new Set(prev);
+          if (data.favorited) next.add(catalogId);
+          else next.delete(catalogId);
+          return next;
+        });
+      });
+  }
+
   function isWorn(invIndex) {
-    // Check if this inventory item is in the clothes array (by reference match via catalogId + index)
     const invItem = inventory[invIndex];
     return clothes.some(c => c === invItem || (c.catalogId === invItem.catalogId && c.wearOffsetX === invItem.wearOffsetX && c.wearOffsetY === invItem.wearOffsetY));
   }
 
   function toggleItem(invIndex) {
     if (isWorn(invIndex)) {
-      // Find the clothes index to unequip
       const invItem = inventory[invIndex];
       const clothesIdx = clothes.findIndex(c => c === invItem || (c.catalogId === invItem.catalogId && c.wearOffsetX === invItem.wearOffsetX && c.wearOffsetY === invItem.wearOffsetY));
       if (clothesIdx >= 0) {
@@ -108,7 +196,32 @@ export default function Inventory() {
     }
   }
 
+  // Build a sorted/filtered view with original indices preserved
+  function getSortedItems() {
+    let indexed = inventory.map((item, i) => ({ item, origIndex: i }));
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      indexed = indexed.filter(({ item }) => (item.name || '').toLowerCase().includes(q));
+    }
+    indexed.sort((a, b) => {
+      const aFav = favorites.has(a.item.catalogId) ? 0 : 1;
+      const bFav = favorites.has(b.item.catalogId) ? 0 : 1;
+      if (aFav !== bFav) return aFav - bFav;
+
+      let cmp = 0;
+      switch (sortField) {
+        case 'name': cmp = (a.item.name || '').localeCompare(b.item.name || ''); break;
+        case 'createdAt': cmp = (a.item.collectedAt || 0) - (b.item.collectedAt || 0); break;
+        case 'attribution': cmp = (a.item.attribution || '').localeCompare(b.item.attribution || ''); break;
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+    return indexed;
+  }
+
   if (inventory.length === 0) return null;
+
+  const sortedItems = getSortedItems();
 
   return (
     <div style={styles.container}>
@@ -119,26 +232,56 @@ export default function Inventory() {
         </button>
       </div>
       {!collapsed && (
-        <div style={styles.grid}>
-          {inventory.map((item, i) => {
-            const worn = isWorn(i);
-            return (
-              <div
-                key={i}
-                style={{
-                  ...styles.item,
-                  background: worn ? '#3a5a3e' : '#1a1a2e',
-                  border: worn ? '2px solid #4a90d9' : '2px solid #444',
-                }}
-                onClick={() => toggleItem(i)}
-                title={`${item.name || item.catalogId}${worn ? ' (worn — click to remove)' : ' (click to wear)'}`}
-              >
-                <img src={item.image} alt={item.name} style={styles.itemImage} />
-                {worn && <div style={styles.wornBadge} />}
-              </div>
-            );
-          })}
-        </div>
+        <>
+          <div style={styles.toolbar}>
+            <input
+              style={styles.searchInput}
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              value={sortField}
+              onChange={(e) => saveSort(e.target.value, sortDir)}
+              style={styles.sortSelect}
+            >
+              <option value="name">A–Z</option>
+              <option value="createdAt">Collected</option>
+              <option value="attribution">Creator</option>
+            </select>
+            <button
+              onClick={() => saveSort(sortField, sortDir === 'asc' ? 'desc' : 'asc')}
+              style={styles.sortButton}
+              title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+            >
+              {sortDir === 'asc' ? '\u25B2' : '\u25BC'}
+            </button>
+          </div>
+          <div style={styles.grid}>
+            {sortedItems.map(({ item, origIndex }) => {
+              const worn = isWorn(origIndex);
+              const isFav = favorites.has(item.catalogId);
+              return (
+                <div
+                  key={origIndex}
+                  style={{
+                    ...styles.item,
+                    background: worn ? '#3a5a3e' : '#1a1a2e',
+                    border: worn ? '2px solid #4a90d9' : '2px solid #444',
+                  }}
+                  onClick={() => toggleItem(origIndex)}
+                  onContextMenu={(e) => { e.preventDefault(); toggleFavorite(item.catalogId); }}
+                  title={`${item.name || item.catalogId}${worn ? ' (worn — click to remove)' : ' (click to wear)'}${authToken ? ' · right-click to favorite' : ''}`}
+                >
+                  <img src={item.image} alt={item.name} style={styles.itemImage} />
+                  {worn && <div style={styles.wornBadge} />}
+                  {isFav && <div style={styles.favBadge}>{'\u2605'}</div>}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );

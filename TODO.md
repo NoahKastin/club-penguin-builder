@@ -37,6 +37,7 @@
 - [x] Item upload flow (image + metadata)
 - [ ] AI guardrail for uploaded items (copyright check against Club Penguin Archive, block porn/living people/etc.)
 - [ ] Items can be free or paywalled
+- [ ] Free items must still be acquired by an account before being usable in Build
 - [ ] Uploaders can always use their own items
 - [ ] Bundle items into "games" (specific location configurations of items, e.g. beans placed into a Mancala board)
 
