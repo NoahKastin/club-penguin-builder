@@ -580,6 +580,10 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                   {sortedCatalog.map(ci => (
                     <option key={ci.id} value={ci.id}>{favorites.has(ci.id) ? '\u2605 ' : ''}{ci.name}</option>
                   ))}
+                  {item.catalogId && !sortedCatalog.some(ci => ci.id === item.catalogId) && (() => {
+                    const current = catalogItems.find(ci => ci.id === item.catalogId);
+                    return current ? <option key={current.id} value={current.id}>{current.name}</option> : null;
+                  })()}
                 </select>
                 {ii > 0 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, -1)} title="Move up (renders behind)">{'\u25B2'}</button>}
                 {ii < (room.items || []).length - 1 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, 1)} title="Move down (renders in front)">{'\u25BC'}</button>}
