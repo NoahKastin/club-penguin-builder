@@ -619,6 +619,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
             </div>
           ))}
           <div style={styles.row}>
+            <button style={styles.smallButton} onClick={() => addItem(ri)}>+ Add Item</button>
             <label style={styles.label}>Beginning with:</label>
             <input
               style={{ ...styles.smallInput, width: '120px' }}
@@ -627,7 +628,6 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
               value={catalogSearch}
               onChange={(e) => setCatalogSearch(e.target.value)}
             />
-            <button style={styles.smallButton} onClick={() => addItem(ri)}>+ Add Item</button>
           </div>
 
           <RoomPreview room={room} catalogItems={catalogItems} />
