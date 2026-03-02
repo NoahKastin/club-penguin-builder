@@ -322,24 +322,15 @@ export default class RoomScene extends Phaser.Scene {
       wearOffsetY: item.wearOffsetY || 0,
       wearWidth: item.wearWidth || 40,
       wearHeight: item.wearHeight || 40,
-      borderGraphic: null,
     };
-
-    if (item.behavior === 'collectible') {
-      const borderRotation = (item.rotation || 0) * Math.PI / 180;
-      const border = this.add.rectangle(cx, cy, item.width + 6, item.height + 6)
-        .setStrokeStyle(3, 0xffffff)
-        .setFillStyle(0x000000, 0)
-        .setDepth(depth)
-        .setRotation(borderRotation);
-      this.itemGraphics.push(border);
-      zone.borderGraphic = border;
-    }
 
     const rotation = (item.rotation || 0) * Math.PI / 180;
 
     if (this.textures.exists(textureKey)) {
       const img = this.add.image(cx, cy, textureKey).setDisplaySize(item.width, item.height).setDepth(depth).setRotation(rotation);
+      if (item.behavior === 'collectible' && img.postFX) {
+        img.postFX.addGlow(0xffffff, 4, 0, false, 0.1, 24);
+      }
       this.itemGraphics.push(img);
     } else {
       const htmlImg = new Image();
@@ -347,6 +338,9 @@ export default class RoomScene extends Phaser.Scene {
         if (this.scene && this.scene.isActive()) {
           this.textures.addImage(textureKey, htmlImg);
           const img = this.add.image(cx, cy, textureKey).setDisplaySize(item.width, item.height).setDepth(depth).setRotation(rotation);
+          if (item.behavior === 'collectible' && img.postFX) {
+            img.postFX.addGlow(0xffffff, 4, 0, false, 0.1, 24);
+          }
           this.itemGraphics.push(img);
         }
       };

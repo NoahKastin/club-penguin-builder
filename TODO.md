@@ -51,7 +51,7 @@
 - [ ] Block penguin movement
 - [x] Clothes equip without regard for item slots (later-equipped goes on top); puffles are a subset of clothes
 - [ ] Configurable memory limit for clothes per penguin
-- [x] Collectible items display with heavy white border; draggable items (future) display with heavy black border; behaviors are mutually exclusive
+- [x] Collectible items display with white glow shadow; draggable items (future) will display with black glow shadow; behaviors are mutually exclusive
 
 ## Moderation
 - [ ] Rules stated per Club Penguin
@@ -77,6 +77,7 @@
 
 ## Main Menu
 - [x] FAQ section: explain what "a Club Penguin" is and why this project is legal; default room dimensions; point to TODO.md for future features and Discord for support
+- [ ] FAQ entry explaining the Pearl ecosystem (buy via Stripe, spend on catalog items, sellers earn Pearls)
 - [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
 - [x] Favicon: based on the "CPB" acronym from the logo
 - [x] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)
@@ -86,7 +87,7 @@
 - [x] Deploy to Fly.io
 - [x] Production build script (Vite builds frontend, Express serves it + runs Socket.io)
 - [x] Environment-based config (port, CORS origin)
-- [x] Geo-restrict to regions where the "Club Penguin" trademark is active (Canada, UK) via geoip-lite (requires Node 24+; Docker uses Node 20 — upgrade if issues arise)
+- [x] Geo-restrict to regions where the "Club Penguin" trademark is active (Canada, UK) via fast-geoip (lightweight, lazy-loads chunks on demand)
 - [x] Containerized via Docker on Fly.io
 - [x] Remove the Outdoors test Club Penguin
 - [x] Cache headers for static assets (add CDN like Cloudflare later if needed at scale)

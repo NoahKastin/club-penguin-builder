@@ -3,9 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-// Lazy-load geoip-lite (loads ~30MB database, very slow on small machines)
-let geoip = null;
-import('geoip-lite').then(m => { geoip = m.default; console.log('GeoIP ready'); }).catch(err => console.warn('Failed to load geoip-lite:', err.message));
+import geoip from 'fast-geoip';
 import db from './db.js';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession } from './accounts.js';
@@ -37,13 +35,14 @@ const BLOCKED_COUNTRIES = ['CA', 'GB'];
 const app = express();
 
 // Geo-restriction: block countries with active Club Penguin trademarks
-app.use((req, res, next) => {
-  if (!geoip) return next(); // Not loaded yet — allow through
+app.use(async (req, res, next) => {
   const ip = req.headers['fly-client-ip'] || req.ip;
-  const geo = geoip.lookup(ip);
-  if (geo && BLOCKED_COUNTRIES.includes(geo.country)) {
-    return res.status(451).send('Club Penguin Builder is not available in your region due to trademark restrictions.');
-  }
+  try {
+    const geo = await geoip.lookup(ip);
+    if (geo && BLOCKED_COUNTRIES.includes(geo.country)) {
+      return res.status(451).send('Club Penguin Builder is not available in your region due to trademark restrictions.');
+    }
+  } catch {}
   next();
 });
 
