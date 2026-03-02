@@ -1,6 +1,9 @@
-import bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import db from './db.js';
+
+// Lazy-load bcrypt (native module, slow to import)
+let bcrypt = null;
+import('bcrypt').then(m => { bcrypt = m.default; }).catch(err => console.warn('Failed to load bcrypt:', err.message));
 
 let nextId = 1;
 const maxRow = db.prepare('SELECT id FROM accounts ORDER BY CAST(SUBSTR(id, 6) AS INTEGER) DESC LIMIT 1').get();
@@ -8,6 +11,7 @@ if (maxRow) nextId = parseInt(maxRow.id.slice(5)) + 1;
 
 
 export async function createAccount(username, password) {
+  if (!bcrypt) throw new Error('Server still starting, please try again');
   const id = 'acct_' + (nextId++);
   const passwordHash = await bcrypt.hash(password, 10);
   const createdAt = Date.now();
@@ -21,6 +25,7 @@ export async function createAccount(username, password) {
 }
 
 export async function login(username, password) {
+  if (!bcrypt) throw new Error('Server still starting, please try again');
   const row = db.prepare('SELECT * FROM accounts WHERE username = ?').get(username);
   if (!row) return null;
   const match = await bcrypt.compare(password, row.password_hash);

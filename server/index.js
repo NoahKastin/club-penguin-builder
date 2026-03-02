@@ -3,7 +3,9 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import geoip from 'geoip-lite';
+// Lazy-load geoip-lite (loads ~30MB database, very slow on small machines)
+let geoip = null;
+import('geoip-lite').then(m => { geoip = m.default; console.log('GeoIP ready'); }).catch(err => console.warn('Failed to load geoip-lite:', err.message));
 import db from './db.js';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession } from './accounts.js';
@@ -36,6 +38,7 @@ const app = express();
 
 // Geo-restriction: block countries with active Club Penguin trademarks
 app.use((req, res, next) => {
+  if (!geoip) return next(); // Not loaded yet — allow through
   const ip = req.headers['fly-client-ip'] || req.ip;
   const geo = geoip.lookup(ip);
   if (geo && BLOCKED_COUNTRIES.includes(geo.country)) {
