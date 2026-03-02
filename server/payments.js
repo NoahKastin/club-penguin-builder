@@ -297,6 +297,7 @@ export async function cashOut(accountId, pearls) {
     });
     refundTxn();
 
-    throw new Error('Transfer failed — your Pearls have been refunded. Please try again.');
+    console.error('Cash-out transfer failed:', err.message);
+    throw new Error(`Transfer failed: ${err.message}`);
   }
 }
