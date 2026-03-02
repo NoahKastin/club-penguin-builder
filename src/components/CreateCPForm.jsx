@@ -375,13 +375,9 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
   }
 
   function sortedCatalogItems() {
-    let filtered = catalogItems.filter(ci =>
+    const filtered = catalogItems.filter(ci =>
       ci.uploaderId === accountId || acquiredItems.has(ci.id)
     );
-    if (catalogSearch.trim()) {
-      const q = catalogSearch.trim().toLowerCase();
-      filtered = filtered.filter(ci => ci.name.toLowerCase().includes(q));
-    }
     return [...filtered].sort((a, b) => {
       const aFav = favorites.has(a.id) ? 0 : 1;
       const bFav = favorites.has(b.id) ? 0 : 1;
@@ -576,11 +572,12 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                   value={item.catalogId}
                   onChange={(e) => updateItem(ri, ii, 'catalogId', e.target.value)}
                 >
-                  {sortedCatalog.length === 0 && !item.catalogId && <option value="">{catalogItems.length === 0 ? 'No items in catalog' : 'No items acquired — visit the Catalog'}</option>}
                   {(() => {
-                    const opts = sortedCatalog.some(ci => ci.id === item.catalogId)
-                      ? sortedCatalog
-                      : [catalogItems.find(ci => ci.id === item.catalogId), ...sortedCatalog].filter(Boolean);
+                    const q = catalogSearch.trim().toLowerCase();
+                    const opts = q
+                      ? sortedCatalog.filter(ci => ci.id === item.catalogId || ci.name.toLowerCase().includes(q))
+                      : sortedCatalog;
+                    if (opts.length === 0) return <option value="">{catalogItems.length === 0 ? 'No items in catalog' : 'No items acquired — visit the Catalog'}</option>;
                     return opts.map(ci => (
                       <option key={ci.id} value={ci.id}>{favorites.has(ci.id) ? '\u2605 ' : ''}{ci.name}</option>
                     ));
