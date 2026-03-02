@@ -170,7 +170,7 @@ export default function Catalog({ authToken, accountId, penguinName, onBack, onP
   const [favorites, setFavorites] = useState(new Set());
   const [purchases, setPurchases] = useState(new Set());
   const [balance, setBalance] = useState(0);
-  const [needsPearls, setNeedsPearls] = useState(false);
+  const [needsPearls, setNeedsPearls] = useState(null);
 
   useEffect(() => {
     fetchRetry('/api/catalog')
@@ -292,7 +292,7 @@ export default function Catalog({ authToken, accountId, penguinName, onBack, onP
 
   function handlePurchase(itemId) {
     setError('');
-    setNeedsPearls(false);
+    setNeedsPearls(null);
     fetch(`/api/catalog/${itemId}/purchase`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
@@ -300,8 +300,11 @@ export default function Catalog({ authToken, accountId, penguinName, onBack, onP
       .then(r => r.json())
       .then(data => {
         if (data.error) {
-          setError(data.error);
-          if (data.error.toLowerCase().includes('enough')) setNeedsPearls(true);
+          if (data.error.toLowerCase().includes('enough')) {
+            setNeedsPearls(data.error);
+          } else {
+            setError(data.error);
+          }
           return;
         }
         setPurchases(prev => new Set([...prev, itemId]));
@@ -438,15 +441,23 @@ export default function Catalog({ authToken, accountId, penguinName, onBack, onP
         </div>
       )}
 
-      {needsPearls && onPearlShop && (
-        <button
-          style={{ ...styles.button, background: '#d9a04a' }}
-          onClick={onPearlShop}
-        >
-          Get Pearls
-        </button>
-      )}
       <button style={styles.backButton} onClick={onBack}>Back</button>
+
+      {needsPearls && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setNeedsPearls(null)}>
+          <div style={{ background: '#2a6cb8', borderRadius: '16px', border: '3px solid #6aacf8', padding: '24px 32px', maxWidth: '340px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ color: '#fff', fontSize: '1rem' }}>{needsPearls}</div>
+            {onPearlShop && (
+              <button style={{ padding: '8px 20px', fontSize: '1rem', borderRadius: '8px', border: 'none', background: '#d9a04a', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }} onClick={onPearlShop}>
+                Get Pearls
+              </button>
+            )}
+            <button style={{ padding: '6px 16px', fontSize: '0.9rem', borderRadius: '8px', border: 'none', background: '#3a5570', color: '#fff', cursor: 'pointer' }} onClick={() => setNeedsPearls(null)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
