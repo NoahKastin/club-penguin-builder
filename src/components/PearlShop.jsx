@@ -164,7 +164,7 @@ export default function PearlShop({ authToken, onBack }) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.title}>Pearl Shop</div>
+      <div style={styles.title}>Pearl Fishery</div>
 
       {balance !== null && (
         <div style={styles.balance}>
@@ -177,7 +177,6 @@ export default function PearlShop({ authToken, onBack }) {
       {error && <div style={{ ...styles.message, background: '#3a1a1a', color: '#ff6b6b' }}>{error}</div>}
 
       <div style={styles.section}>
-        <div style={styles.sectionTitle}>Buy Pearls</div>
         <div style={styles.bundleGrid}>
           {bundles.map(b => (
             <div key={b.pearls} style={styles.bundleCard}>

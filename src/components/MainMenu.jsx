@@ -98,7 +98,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
   const [sortDir, setSortDir] = useState('asc');
 
   useEffect(() => {
-    // Auto-open Pearl Shop on Stripe redirect
+    // Auto-open Pearl Fishery on Stripe redirect
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') && authToken) {
       setShowPearlShop(true);
@@ -195,7 +195,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
           <button
             style={{ marginLeft: '8px', padding: '4px 10px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #d9a04a', background: 'transparent', color: '#d9a04a', cursor: 'pointer' }}
             onClick={() => setShowPearlShop(true)}
-            title="Pearl Shop"
+            title="Pearl Fishery"
           >
             {pearlBalance} Pearl{pearlBalance !== 1 ? 's' : ''}
           </button>
