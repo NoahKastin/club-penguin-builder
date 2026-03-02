@@ -180,6 +180,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
       <CreateCPForm
         editCpId={editingCpId}
         authToken={authToken}
+        accountId={accountId}
         onCreated={() => { setShowCreate(false); setEditingCpId(null); }}
         onCancel={() => { setShowCreate(false); setEditingCpId(null); }}
       />

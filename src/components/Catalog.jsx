@@ -314,9 +314,23 @@ export default function Catalog({ authToken, accountId, penguinName, onBack, onP
       .catch(() => setError('Purchase failed'));
   }
 
+  function handleAcquire(itemId) {
+    if (!authToken) return;
+    setError('');
+    fetch(`/api/catalog/${itemId}/acquire`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { setError(data.error); return; }
+        setPurchases(prev => new Set([...prev, itemId]));
+      })
+      .catch(() => setError('Acquire failed'));
+  }
+
   function ownsItem(item) {
-    if (item.price <= 0) return true; // free
-    if (item.uploaderId === accountId) return true; // uploader
+    if (item.uploaderId === accountId) return true; // uploader always owns
     return purchases.has(item.id);
   }
 
@@ -433,6 +447,15 @@ export default function Catalog({ authToken, accountId, penguinName, onBack, onP
                     Buy ({item.price} Pearl{item.price !== 1 ? 's' : ''})
                   </button>
                 )
+              ) : ownsItem(item) ? (
+                <div style={{ fontSize: '0.75rem', color: '#6bff6b' }}>Acquired</div>
+              ) : authToken ? (
+                <button
+                  style={{ padding: '3px 10px', fontSize: '0.75rem', borderRadius: '4px', border: 'none', background: '#4a90d9', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                  onClick={() => handleAcquire(item.id)}
+                >
+                  Acquire (Free)
+                </button>
               ) : (
                 <div style={{ fontSize: '0.75rem', color: '#aaa' }}>Free</div>
               )}

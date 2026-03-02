@@ -37,7 +37,7 @@
 - [x] Item upload flow (image + metadata)
 - [x] AI guardrail for uploaded items (OpenAI content safety + Claude Haiku copyright check)
 - [x] Items can be free or paywalled (Pearl currency, Stripe checkout)
-- [ ] Free items must still be acquired by an account before being usable in Build
+- [x] Free items must still be acquired by an account before being usable in Build
 - [x] Uploaders can always use their own items
 - [ ] Bundle items into "games" (specific location configurations of items, e.g. beans placed into a Mancala board)
 
@@ -70,14 +70,17 @@
 - [x] Club Penguin updates ("parties") from devs
 - [x] Party log per server: saves when parties were launched with their name (entered via the create/edit CP form); users can view the log by clicking an icon next to each server in the CP list
 - [x] Compact serialization: rooms and items stored as ID + coordinates/size (no duplicated asset data)
+- [x] Pearl currency: users buy Pearl bundles via Stripe Checkout, spend Pearls on priced catalog items; sellers earn Pearls on sale; platform takes 1/6 cut after Stripe fees
+- [ ] Seller cash-out: Pearl holders can withdraw earnings via Stripe Connect
 - [ ] Funding model: free tier, then beyond that supporters pitch in the maximum they're willing to pay (one-time or monthly); actual costs (Fly.io charges + platform cut) are divided evenly across the total money offered
 - [ ] Separate tiers for paying to support the server vs. paying to support those who are supporting the server; moderation-choice perks can be gated behind either
 - [ ] Supporters are not synonymous with devs (someone can pay to support without having rights to adjust the CP, though dev access itself could be a perk for supporting)
 - [ ] Monetization: devs can paywall moderation features (party planning, external items, clothes memory, enforcement actions) — either one-off or subscription, at whatever price the dev wants
+- [ ] Update FAQ Pearl ecosystem entry once seller cash-out and additional Pearl-gated features are in
 
 ## Main Menu
 - [x] FAQ section: explain what "a Club Penguin" is and why this project is legal; default room dimensions; point to TODO.md for future features and Discord for support
-- [ ] FAQ entry explaining the Pearl ecosystem (buy via Stripe, spend on catalog items, sellers earn Pearls)
+- [ ] FAQ entry explaining the Pearl ecosystem (buy via Stripe, spend on catalog items, sellers earn Pearls) — add once seller cash-out is in
 - [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
 - [x] Favicon: based on the "CPB" acronym from the logo
 - [x] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)

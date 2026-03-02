@@ -213,7 +213,7 @@ function RoomPreview({ room, catalogItems }) {
 }
 
 // editCpId: if set, we're editing an existing CP
-export default function CreateCPForm({ editCpId, authToken, onCreated, onCancel }) {
+export default function CreateCPForm({ editCpId, authToken, accountId, onCreated, onCancel }) {
   const [cpName, setCpName] = useState('');
   const [rooms, setRooms] = useState([
     { tempId: 'room_1', name: 'Lobby', bgColor: '#333333', hidden: false, exits: [], items: [] },
@@ -226,6 +226,7 @@ export default function CreateCPForm({ editCpId, authToken, onCreated, onCancel 
   const [catalogSortDir, setCatalogSortDir] = useState('asc');
   const [favorites, setFavorites] = useState(new Set());
   const [catalogSearch, setCatalogSearch] = useState('');
+  const [acquiredItems, setAcquiredItems] = useState(new Set());
 
   useEffect(() => {
     fetch('/api/catalog').then(r => r.json()).then(setCatalogItems).catch(() => {});
@@ -241,6 +242,9 @@ export default function CreateCPForm({ editCpId, authToken, onCreated, onCancel 
       fetch('/api/auth/favorites', { headers: { Authorization: `Bearer ${authToken}` } })
         .then(r => r.ok ? r.json() : [])
         .then(ids => setFavorites(new Set(ids)));
+      fetch('/api/account/purchases', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : [])
+        .then(ids => setAcquiredItems(new Set(ids)));
     }
   }, []);
 
@@ -330,7 +334,8 @@ export default function CreateCPForm({ editCpId, authToken, onCreated, onCancel 
 
   function addItem(roomIndex) {
     const updated = [...rooms];
-    const defaultCatalogId = catalogItems.length > 0 ? catalogItems[0].id : '';
+    const available = sortedCatalogItems();
+    const defaultCatalogId = available.length > 0 ? available[0].id : '';
     updated[roomIndex] = {
       ...updated[roomIndex],
       items: [...updated[roomIndex].items, {
@@ -370,7 +375,9 @@ export default function CreateCPForm({ editCpId, authToken, onCreated, onCancel 
   }
 
   function sortedCatalogItems() {
-    let filtered = catalogItems;
+    let filtered = catalogItems.filter(ci =>
+      ci.uploaderId === accountId || acquiredItems.has(ci.id)
+    );
     if (catalogSearch.trim()) {
       const q = catalogSearch.trim().toLowerCase();
       filtered = filtered.filter(ci => ci.name.toLowerCase().includes(q));
@@ -569,7 +576,7 @@ export default function CreateCPForm({ editCpId, authToken, onCreated, onCancel 
                   value={item.catalogId}
                   onChange={(e) => updateItem(ri, ii, 'catalogId', e.target.value)}
                 >
-                  {sortedCatalog.length === 0 && <option value="">No items in catalog</option>}
+                  {sortedCatalog.length === 0 && <option value="">{catalogItems.length === 0 ? 'No items in catalog' : 'No items acquired — visit the Catalog'}</option>}
                   {sortedCatalog.map(ci => (
                     <option key={ci.id} value={ci.id}>{favorites.has(ci.id) ? '\u2605 ' : ''}{ci.name}</option>
                   ))}

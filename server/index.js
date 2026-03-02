@@ -14,6 +14,7 @@ import { moderateUpload } from './moderation.js';
 import {
   isStripeEnabled, getBundles, createCheckoutSession, handleWebhook,
   getBalance, getTransactions, purchaseItem, canAccessItem, getPurchasedItems,
+  acquireFreeItem,
 } from './payments.js';
 import {
   addPenguin,
@@ -232,6 +233,16 @@ app.post('/api/catalog/:id/purchase', (req, res) => {
   const result = purchaseItem(accountId, req.params.id);
   if (!result.ok) return res.status(400).json({ error: result.error });
   res.json({ ok: true, pearls: getBalance(accountId) });
+});
+
+// Acquire a free catalog item (adds to user's library)
+app.post('/api/catalog/:id/acquire', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'You must be logged in to acquire items' });
+  const result = acquireFreeItem(accountId, req.params.id);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  res.json({ ok: true });
 });
 
 // Check if user can access a priced item
@@ -601,6 +612,19 @@ io.on('connection', (socket) => {
     });
   });
 
+  function validateItemAccess(rooms, accountId) {
+    for (const room of Object.values(rooms)) {
+      for (const item of (room.items || [])) {
+        if (item.catalogId && !canAccessItem(accountId, item.catalogId)) {
+          const cat = getCatalogItem(item.catalogId);
+          const label = cat ? `"${cat.name}"` : item.catalogId;
+          return `You don't have access to item ${label} — acquire it from the Catalog first`;
+        }
+      }
+    }
+    return null;
+  }
+
   socket.on('createClubPenguin', (data, callback) => {
     // Auth check: must be logged in
     const creatorAccountId = data.token ? getSession(data.token) : null;
@@ -632,6 +656,9 @@ io.on('connection', (socket) => {
         }
       }
     }
+
+    const itemError = validateItemAccess(data.rooms, creatorAccountId);
+    if (itemError) return callback({ success: false, error: itemError });
 
     const cp = createClubPenguin(data.name.trim(), data.rooms, creatorAccountId);
     const summary = cpSummary(cp.id);
@@ -672,6 +699,9 @@ io.on('connection', (socket) => {
         }
       }
     }
+
+    const itemError = validateItemAccess(data.rooms, editorAccountId);
+    if (itemError) return callback({ success: false, error: itemError });
 
     const cp = updateClubPenguin(data.id, data.name.trim(), data.rooms);
     if (!cp) {

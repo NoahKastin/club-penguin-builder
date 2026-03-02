@@ -162,9 +162,17 @@ export function purchaseItem(buyerAccountId, catalogId) {
 export function canAccessItem(accountId, catalogId) {
   const item = getCatalogItem(catalogId);
   if (!item) return false;
-  if (item.price <= 0) return true; // Free items
-  if (item.uploaderId === accountId) return true; // Uploader owns it
+  if (item.uploaderId === accountId) return true; // Uploader always owns it
   return !!db.prepare('SELECT 1 FROM item_purchases WHERE account_id = ? AND catalog_id = ?').get(accountId, catalogId);
+}
+
+export function acquireFreeItem(accountId, catalogId) {
+  const item = getCatalogItem(catalogId);
+  if (!item) return { ok: false, error: 'Item not found' };
+  if (item.price > 0) return { ok: false, error: 'This item is not free' };
+  if (item.uploaderId === accountId) return { ok: false, error: 'You uploaded this item — you already own it' };
+  db.prepare('INSERT OR IGNORE INTO item_purchases (account_id, catalog_id) VALUES (?, ?)').run(accountId, catalogId);
+  return { ok: true };
 }
 
 export function getPurchasedItems(accountId) {

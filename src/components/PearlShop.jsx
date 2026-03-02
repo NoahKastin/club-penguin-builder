@@ -178,8 +178,9 @@ export default function PearlShop({ authToken, onBack }) {
 
       <div style={styles.section}>
         <div style={styles.bundleGrid}>
-          {bundles.map(b => (
+          {bundles.map((b, i) => (
             <div key={b.pearls} style={styles.bundleCard}>
+              <img src={`/pearls/bundle-${i + 1}.png`} alt="" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
               <div style={styles.pearlCount}>{b.pearls} Pearls</div>
               <div style={styles.pearlValue}>${(b.pearls * 0.05).toFixed(2)} value</div>
               <button style={styles.buyButton} onClick={() => handleBuy(b.pearls)}>
