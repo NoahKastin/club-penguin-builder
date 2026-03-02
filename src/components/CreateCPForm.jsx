@@ -337,7 +337,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
     let available = sortedCatalogItems();
     if (catalogSearch.trim()) {
       const q = catalogSearch.trim().toLowerCase();
-      const searched = available.filter(ci => ci.name.toLowerCase().includes(q));
+      const searched = available.filter(ci => ci.name.toLowerCase().startsWith(q));
       if (searched.length > 0) available = searched;
     }
     const defaultCatalogId = available.length > 0 ? available[0].id : '';
@@ -561,13 +561,6 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
           )}
 
           <div style={{ fontSize: '0.9rem', color: '#aaa', marginTop: '4px' }}>Items</div>
-          <input
-            style={{ ...styles.smallInput, width: '100%', marginBottom: '4px' }}
-            type="text"
-            placeholder="Search catalog items..."
-            value={catalogSearch}
-            onChange={(e) => setCatalogSearch(e.target.value)}
-          />
           {(room.items || []).map((item, ii) => (
             <div key={ii} style={styles.exitCard}>
               <div style={styles.row}>
@@ -625,7 +618,17 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
               )}
             </div>
           ))}
-          <button style={styles.smallButton} onClick={() => addItem(ri)}>+ Add Item</button>
+          <div style={styles.row}>
+            <label style={styles.label}>Beginning with:</label>
+            <input
+              style={{ ...styles.smallInput, width: '120px' }}
+              type="text"
+              placeholder=""
+              value={catalogSearch}
+              onChange={(e) => setCatalogSearch(e.target.value)}
+            />
+            <button style={styles.smallButton} onClick={() => addItem(ri)}>+ Add Item</button>
+          </div>
 
           <RoomPreview room={room} catalogItems={catalogItems} />
         </div>
