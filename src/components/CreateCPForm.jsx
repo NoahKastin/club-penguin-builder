@@ -334,7 +334,12 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
 
   function addItem(roomIndex) {
     const updated = [...rooms];
-    const available = sortedCatalogItems();
+    let available = sortedCatalogItems();
+    if (catalogSearch.trim()) {
+      const q = catalogSearch.trim().toLowerCase();
+      const searched = available.filter(ci => ci.name.toLowerCase().includes(q));
+      if (searched.length > 0) available = searched;
+    }
     const defaultCatalogId = available.length > 0 ? available[0].id : '';
     updated[roomIndex] = {
       ...updated[roomIndex],
@@ -572,16 +577,11 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                   value={item.catalogId}
                   onChange={(e) => updateItem(ri, ii, 'catalogId', e.target.value)}
                 >
-                  {(() => {
-                    const q = catalogSearch.trim().toLowerCase();
-                    const opts = q
-                      ? sortedCatalog.filter(ci => ci.id === item.catalogId || ci.name.toLowerCase().includes(q))
-                      : sortedCatalog;
-                    if (opts.length === 0) return <option value="">{catalogItems.length === 0 ? 'No items in catalog' : 'No items acquired — visit the Catalog'}</option>;
-                    return opts.map(ci => (
+                  {sortedCatalog.length === 0
+                    ? <option value="">{catalogItems.length === 0 ? 'No items in catalog' : 'No items acquired — visit the Catalog'}</option>
+                    : sortedCatalog.map(ci => (
                       <option key={ci.id} value={ci.id}>{favorites.has(ci.id) ? '\u2605 ' : ''}{ci.name}</option>
-                    ));
-                  })()}
+                    ))}
                 </select>
                 {ii > 0 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, -1)} title="Move up (renders behind)">{'\u25B2'}</button>}
                 {ii < (room.items || []).length - 1 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, 1)} title="Move down (renders in front)">{'\u25BC'}</button>}
