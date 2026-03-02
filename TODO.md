@@ -72,7 +72,7 @@
 - [ ] Funding model: free tier, then beyond that supporters pitch in the maximum they're willing to pay (one-time or monthly); actual costs (Fly.io charges + platform cut) are divided evenly across the total money offered
 - [ ] Separate tiers for paying to support the server vs. paying to support those who are supporting the server; moderation-choice perks can be gated behind either
 - [ ] Supporters are not synonymous with devs (someone can pay to support without having rights to adjust the CP, though dev access itself could be a perk for supporting)
-- [ ] Monetization: devs can paywall moderation features (party planning, external items, clothes memory, enforcement actions) — either one-off or subscription, at whatever price the dev wants
+- [ ] Monetization: devs can paywall moderation features (party planning, external items, clothes memory, enforcement actions) via subscription at whatever price the dev wants
 - [ ] Update FAQ Pearl ecosystem entry once seller cash-out and additional Pearl-gated features are in
 
 ## Main Menu
