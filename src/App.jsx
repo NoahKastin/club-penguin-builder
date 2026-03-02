@@ -3,6 +3,7 @@ import NameEntry from './components/NameEntry';
 import MainMenu from './components/MainMenu';
 import GameView from './components/GameView';
 import { setAuthToken as setSocketAuthToken } from './network/socket';
+import fetchRetry from './network/fetchRetry';
 
 export default function App() {
   const [penguinName, setPenguinName] = useState(null);
@@ -15,7 +16,7 @@ export default function App() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { setLoading(false); return; }
-    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+    fetchRetry('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(data => {
         setPenguinName(data.account.username);

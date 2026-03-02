@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as socket from '../network/socket';
+import fetchRetry from '../network/fetchRetry';
 import CreateCPForm from './CreateCPForm';
 import Catalog from './Catalog';
 import PearlShop from './PearlShop';
@@ -104,7 +105,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
       setShowPearlShop(true);
     }
 
-    fetch('/api/clubpenguins')
+    fetchRetry('/api/clubpenguins')
       .then(r => r.json())
       .then(cps => { setClubPenguins(cps); setLoading(false); });
 

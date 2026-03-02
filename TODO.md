@@ -35,10 +35,10 @@
 ## Item System & Catalog
 - [x] Central item marketplace ("Catalog") for uploading/downloading items
 - [x] Item upload flow (image + metadata)
-- [ ] AI guardrail for uploaded items (copyright check against Club Penguin Archive, block porn/living people/etc.)
-- [ ] Items can be free or paywalled
+- [x] AI guardrail for uploaded items (OpenAI content safety + Claude Haiku copyright check)
+- [x] Items can be free or paywalled (Pearl currency, Stripe checkout)
 - [ ] Free items must still be acquired by an account before being usable in Build
-- [ ] Uploaders can always use their own items
+- [x] Uploaders can always use their own items
 - [ ] Bundle items into "games" (specific location configurations of items, e.g. beans placed into a Mancala board)
 
 ## Item Behaviors (per room)

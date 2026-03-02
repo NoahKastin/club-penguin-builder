@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import fetchRetry from '../network/fetchRetry';
 
 const styles = {
   container: {
@@ -171,7 +172,7 @@ export default function Catalog({ authToken, accountId, penguinName, onBack }) {
   const [balance, setBalance] = useState(0);
 
   useEffect(() => {
-    fetch('/api/catalog')
+    fetchRetry('/api/catalog')
       .then(r => r.json())
       .then(data => { setItems(data); setLoading(false); })
       .catch(() => setLoading(false));
