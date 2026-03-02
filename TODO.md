@@ -42,9 +42,7 @@
 - [ ] Bundle items into "games" (specific location configurations of items, e.g. beans placed into a Mancala board)
 
 ## Item Behaviors (per room)
-- [x] Collectible by penguins — two future categories:
-  - Clothes (render on penguins): pins, colors/sprites, costumes, hats, etc.
-  - Igloo furniture (placed in igloos, does not render on penguins)
+- [x] Collectible by penguins (clothes: render on penguins — pins, colors/sprites, costumes, hats, etc.)
 - [ ] Draggable by penguins
 - [ ] Resizable items within rooms
 - [ ] Physics: skid/bounce, gravity toward a location
@@ -58,7 +56,6 @@
 - [ ] Configurable enforcement actions
 - [ ] AI automod (toggleable in bits/pieces, varying intensity)
 - [ ] Item policy: allow/whitelist/blacklist items from other Club Penguins
-- [ ] Toggle: private igloos per penguin
 - [ ] Toggle: party planning per penguin
 - [ ] Devs can freely elect other accounts as devs and/or mods
 
@@ -71,7 +68,7 @@
 - [x] Party log per server: saves when parties were launched with their name (entered via the create/edit CP form); users can view the log by clicking an icon next to each server in the CP list
 - [x] Compact serialization: rooms and items stored as ID + coordinates/size (no duplicated asset data)
 - [x] Pearl currency: users buy Pearl bundles via Stripe Checkout, spend Pearls on priced catalog items; sellers earn Pearls on sale; platform takes 1/6 cut after Stripe fees
-- [ ] Seller cash-out: Pearl holders can withdraw earnings via Stripe Connect
+- [x] Seller cash-out: Pearl holders can withdraw earnings via Stripe Connect
 - [ ] Funding model: free tier, then beyond that supporters pitch in the maximum they're willing to pay (one-time or monthly); actual costs (Fly.io charges + platform cut) are divided evenly across the total money offered
 - [ ] Separate tiers for paying to support the server vs. paying to support those who are supporting the server; moderation-choice perks can be gated behind either
 - [ ] Supporters are not synonymous with devs (someone can pay to support without having rights to adjust the CP, though dev access itself could be a perk for supporting)

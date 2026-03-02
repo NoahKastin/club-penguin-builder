@@ -162,4 +162,25 @@ db.exec(`
   )
 `);
 
+// Migration: add Stripe Connect fields to accounts
+const acctCols2 = db.prepare("PRAGMA table_info(accounts)").all().map(c => c.name);
+if (!acctCols2.includes('stripe_connect_id')) {
+  db.exec("ALTER TABLE accounts ADD COLUMN stripe_connect_id TEXT");
+  db.exec("ALTER TABLE accounts ADD COLUMN stripe_onboarding_complete INTEGER NOT NULL DEFAULT 0");
+}
+
+// Cash-out transfers
+db.exec(`
+  CREATE TABLE IF NOT EXISTS cashout_transfers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id TEXT NOT NULL,
+    pearls INTEGER NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    stripe_transfer_id TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    error TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )
+`);
+
 export default db;

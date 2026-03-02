@@ -95,6 +95,8 @@ const TX_LABELS = {
   purchase: 'Bought Pearls',
   item_buy: 'Bought item',
   item_sale: 'Item sold',
+  cashout: 'Cash out',
+  cashout_refund: 'Cash out refund',
 };
 
 export default function PearlShop({ authToken, onBack }) {
@@ -104,16 +106,24 @@ export default function PearlShop({ authToken, onBack }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [connectStatus, setConnectStatus] = useState(null);
+  const [cashoutAmount, setCashoutAmount] = useState('');
+  const [cashoutLoading, setCashoutLoading] = useState(false);
 
   useEffect(() => {
-    // Check for payment redirect
+    // Check for payment/connect redirects
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') === 'success') {
       setSuccess('Payment successful! Your Pearls have been added.');
-      // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
     } else if (params.get('payment') === 'cancelled') {
       setError('Payment cancelled.');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (params.get('connect') === 'return') {
+      setSuccess('Stripe setup updated! Checking status...');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (params.get('connect') === 'refresh') {
+      setError('Onboarding link expired. Please try again.');
       window.history.replaceState({}, '', window.location.pathname);
     }
 
@@ -136,7 +146,56 @@ export default function PearlShop({ authToken, onBack }) {
       setTransactions(data);
       setLoading(false);
     }).catch(() => setLoading(false));
+
+    // Fetch connect status
+    fetch('/api/connect/status', {
+      headers: { Authorization: `Bearer ${authToken}` },
+    }).then(r => r.json()).then(setConnectStatus).catch(() => {});
   }, []);
+
+  async function handleSetupConnect() {
+    setError('');
+    try {
+      const res = await fetch('/api/connect/setup', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json();
+      if (data.error) return setError(data.error);
+      if (data.url) window.location.href = data.url;
+    } catch { setError('Failed to start setup'); }
+  }
+
+  async function handleCashOut() {
+    setError('');
+    setSuccess('');
+    const pearls = parseInt(cashoutAmount, 10);
+    if (!pearls || pearls <= 0) return setError('Enter a valid number of Pearls');
+    if (pearls > balance) return setError('Not enough Pearls');
+
+    setCashoutLoading(true);
+    try {
+      const res = await fetch('/api/connect/cashout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ pearls }),
+      });
+      const data = await res.json();
+      if (data.error) { setError(data.error); setCashoutLoading(false); return; }
+
+      setBalance(data.balance);
+      setCashoutAmount('');
+      setSuccess(`Cashed out ${pearls} Pearl${pearls !== 1 ? 's' : ''} ($${(pearls * 0.05).toFixed(2)})`);
+      // Refresh transactions
+      fetch('/api/account/transactions', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      }).then(r => r.json()).then(setTransactions);
+    } catch { setError('Cash out failed'); }
+    setCashoutLoading(false);
+  }
 
   async function handleBuy(pearlCount) {
     setError('');
@@ -174,6 +233,53 @@ export default function PearlShop({ authToken, onBack }) {
 
       {success && <div style={{ ...styles.message, background: '#1a3a1a', color: '#6bff6b' }}>{success}</div>}
       {error && <div style={{ ...styles.message, background: '#3a1a1a', color: '#ff6b6b' }}>{error}</div>}
+
+      {connectStatus && (
+        <div style={styles.section}>
+          <div style={styles.sectionTitle}>Cash Out</div>
+          {!connectStatus.connected ? (
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: '#aaa', marginBottom: '8px', marginTop: 0 }}>
+                Set up payouts to withdraw your Pearl earnings as real money.
+              </p>
+              <button style={styles.buyButton} onClick={handleSetupConnect}>
+                Set Up Cash Out
+              </button>
+            </div>
+          ) : !connectStatus.onboardingComplete ? (
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: '#ffaa6b', marginBottom: '8px', marginTop: 0 }}>
+                Your payout setup is incomplete. Finish it to start cashing out.
+              </p>
+              <button style={styles.buyButton} onClick={handleSetupConnect}>
+                Complete Setup
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <input
+                type="number"
+                min="1"
+                max={balance}
+                value={cashoutAmount}
+                onChange={e => setCashoutAmount(e.target.value)}
+                placeholder="Pearls"
+                style={{ width: '80px', padding: '6px', borderRadius: '6px', border: '1px solid #555', background: '#1a1a2e', color: '#fff', textAlign: 'center' }}
+              />
+              <span style={{ color: '#aaa' }}>
+                = ${cashoutAmount ? (parseInt(cashoutAmount, 10) * 0.05).toFixed(2) : '0.00'}
+              </span>
+              <button
+                style={{ ...styles.buyButton, background: cashoutLoading ? '#666' : '#4ad96a' }}
+                onClick={handleCashOut}
+                disabled={cashoutLoading}
+              >
+                {cashoutLoading ? 'Processing...' : 'Cash Out'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={styles.section}>
         <div style={styles.bundleGrid}>

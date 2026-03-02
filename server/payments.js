@@ -178,3 +178,125 @@ export function acquireFreeItem(accountId, catalogId) {
 export function getPurchasedItems(accountId) {
   return db.prepare('SELECT catalog_id FROM item_purchases WHERE account_id = ?').all(accountId).map(r => r.catalog_id);
 }
+
+// --- Stripe Connect (seller cash-out) ---
+
+export async function createConnectAccount(accountId) {
+  if (!stripe) throw new Error('Payments not configured');
+
+  const account = db.prepare('SELECT stripe_connect_id FROM accounts WHERE id = ?').get(accountId);
+  if (!account) throw new Error('Account not found');
+
+  // Idempotent: return existing if already created
+  if (account.stripe_connect_id) {
+    return { connectId: account.stripe_connect_id };
+  }
+
+  const connectAccount = await stripe.accounts.create({
+    type: 'express',
+    metadata: { accountId },
+  });
+
+  db.prepare('UPDATE accounts SET stripe_connect_id = ? WHERE id = ?')
+    .run(connectAccount.id, accountId);
+
+  return { connectId: connectAccount.id };
+}
+
+export async function createOnboardingLink(accountId, origin) {
+  if (!stripe) throw new Error('Payments not configured');
+
+  const account = db.prepare('SELECT stripe_connect_id FROM accounts WHERE id = ?').get(accountId);
+  if (!account?.stripe_connect_id) throw new Error('No connected account — create one first');
+
+  const link = await stripe.accountLinks.create({
+    account: account.stripe_connect_id,
+    refresh_url: `${origin}/?connect=refresh`,
+    return_url: `${origin}/?connect=return`,
+    type: 'account_onboarding',
+  });
+
+  return { url: link.url };
+}
+
+export async function getConnectStatus(accountId) {
+  if (!stripe) return { connected: false, onboardingComplete: false };
+
+  const account = db.prepare('SELECT stripe_connect_id, stripe_onboarding_complete FROM accounts WHERE id = ?').get(accountId);
+  if (!account?.stripe_connect_id) return { connected: false, onboardingComplete: false };
+
+  // If already marked complete locally, trust it
+  if (account.stripe_onboarding_complete) {
+    return { connected: true, onboardingComplete: true };
+  }
+
+  // Check with Stripe
+  const stripeAcct = await stripe.accounts.retrieve(account.stripe_connect_id);
+  const complete = stripeAcct.details_submitted && !(stripeAcct.requirements?.currently_due?.length);
+
+  if (complete) {
+    db.prepare('UPDATE accounts SET stripe_onboarding_complete = 1 WHERE id = ?').run(accountId);
+  }
+
+  return { connected: true, onboardingComplete: complete };
+}
+
+export async function cashOut(accountId, pearls) {
+  if (!stripe) throw new Error('Payments not configured');
+  if (!Number.isInteger(pearls) || pearls <= 0) throw new Error('Invalid Pearl amount');
+
+  const account = db.prepare('SELECT stripe_connect_id, stripe_onboarding_complete, pearl_balance FROM accounts WHERE id = ?').get(accountId);
+  if (!account) throw new Error('Account not found');
+  if (!account.stripe_connect_id || !account.stripe_onboarding_complete) {
+    throw new Error('Complete Stripe onboarding before cashing out');
+  }
+  if (account.pearl_balance < pearls) {
+    throw new Error(`Not enough Pearls (have ${account.pearl_balance}, need ${pearls})`);
+  }
+
+  const amountCents = pearls * 5; // $0.05 per pearl
+
+  // Atomically deduct pearls and create transfer record
+  let transferRowId;
+  const deductTxn = db.transaction(() => {
+    db.prepare('UPDATE accounts SET pearl_balance = pearl_balance - ? WHERE id = ?').run(pearls, accountId);
+
+    const result = db.prepare(
+      'INSERT INTO cashout_transfers (account_id, pearls, amount_cents) VALUES (?, ?, ?)'
+    ).run(accountId, pearls, amountCents);
+    transferRowId = result.lastInsertRowid;
+
+    db.prepare(
+      'INSERT INTO pearl_transactions (account_id, amount, type, reference) VALUES (?, ?, ?, ?)'
+    ).run(accountId, -pearls, 'cashout', String(transferRowId));
+  });
+  deductTxn();
+
+  // Stripe transfer (outside DB transaction)
+  try {
+    const transfer = await stripe.transfers.create({
+      amount: amountCents,
+      currency: 'usd',
+      destination: account.stripe_connect_id,
+      metadata: { accountId, pearls: String(pearls) },
+    });
+
+    db.prepare('UPDATE cashout_transfers SET status = ?, stripe_transfer_id = ? WHERE id = ?')
+      .run('completed', transfer.id, transferRowId);
+
+    return { ok: true, transferId: transfer.id, amountCents, pearls };
+  } catch (err) {
+    // Transfer failed — refund pearls atomically
+    const refundTxn = db.transaction(() => {
+      db.prepare('UPDATE accounts SET pearl_balance = pearl_balance + ? WHERE id = ?').run(pearls, accountId);
+      db.prepare(
+        'INSERT INTO pearl_transactions (account_id, amount, type, reference) VALUES (?, ?, ?, ?)'
+      ).run(accountId, pearls, 'cashout_refund', String(transferRowId));
+      db.prepare('UPDATE cashout_transfers SET status = ?, error = ? WHERE id = ?')
+        .run('failed', err.message, transferRowId);
+    });
+    refundTxn();
+
+    throw new Error('Transfer failed — your Pearls have been refunded. Please try again.');
+  }
+}

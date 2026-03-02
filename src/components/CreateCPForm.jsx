@@ -495,7 +495,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                   checked={room.hidden}
                   onChange={() => updateRoom(ri, 'hidden', !room.hidden)}
                 />{' '}
-                Hidden
+                Hidden (no spawn)
               </label>
               {rooms.length > 1 && (
                 <button style={styles.dangerButton} onClick={() => removeRoom(ri)}>Remove</button>

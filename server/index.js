@@ -14,7 +14,7 @@ import { moderateUpload } from './moderation.js';
 import {
   isStripeEnabled, getBundles, createCheckoutSession, handleWebhook,
   getBalance, getTransactions, purchaseItem, canAccessItem, getPurchasedItems,
-  acquireFreeItem,
+  acquireFreeItem, createConnectAccount, createOnboardingLink, getConnectStatus, cashOut,
 } from './payments.js';
 import {
   addPenguin,
@@ -266,6 +266,63 @@ app.get('/api/account/purchases', (req, res) => {
   const accountId = getSession(token);
   if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
   res.json(getPurchasedItems(accountId));
+});
+
+// Stripe Connect — seller cash-out
+app.post('/api/connect/setup', async (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+
+  try {
+    await createConnectAccount(accountId);
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const { url } = await createOnboardingLink(accountId, origin);
+    res.json({ url });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/connect/status', async (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+
+  try {
+    const status = await getConnectStatus(accountId);
+    res.json(status);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/connect/cashout', async (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const { pearls } = req.body;
+  try {
+    const result = await cashOut(accountId, pearls);
+    res.json({ ...result, balance: getBalance(accountId) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/connect/onboarding-link', async (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+
+  try {
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const { url } = await createOnboardingLink(accountId, origin);
+    res.json({ url });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // REST endpoint for listing Club Penguins
