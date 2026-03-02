@@ -206,7 +206,14 @@ app.get('/api/account/transactions', (req, res) => {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   const accountId = getSession(token);
   if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
-  res.json(getTransactions(accountId));
+  const txns = getTransactions(accountId).map(tx => {
+    if ((tx.type === 'item_buy' || tx.type === 'item_sale') && tx.reference) {
+      const item = getCatalogItem(tx.reference);
+      if (item) tx.itemName = item.name;
+    }
+    return tx;
+  });
+  res.json(txns);
 });
 
 // Create Stripe checkout session for Pearl purchase

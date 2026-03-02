@@ -196,7 +196,7 @@ export default function PearlShop({ authToken, onBack }) {
           <div style={styles.sectionTitle}>Recent Transactions</div>
           {transactions.map((tx, i) => (
             <div key={i} style={styles.txRow}>
-              <span style={{ color: '#ccc' }}>{TX_LABELS[tx.type] || tx.type}</span>
+              <span style={{ color: '#ccc' }}>{TX_LABELS[tx.type] || tx.type}{tx.itemName ? `: ${tx.itemName}` : ''}</span>
               <span style={{ color: tx.amount > 0 ? '#6bff6b' : '#ff6b6b', fontWeight: 'bold' }}>
                 {tx.amount > 0 ? '+' : ''}{tx.amount}
               </span>
