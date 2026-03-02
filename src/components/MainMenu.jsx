@@ -300,6 +300,10 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
             <div style={{ color: '#ccc' }}>When a dev edits his/her Club Penguin, the update is called a "party." Each party can have an optional name (e.g. "Holiday Party" or "New Room Party," though "Party" doesn't have to be in the name; you could just write something like "Holiday") that shows up in the party log; the 🎉 button next to each Club Penguin on the main menu.</div>
           </div>
           <div>
+            <strong>What are Pearls?</strong>
+            <div style={{ color: '#ccc' }}>Pearls are the platform's currency. You can buy Pearl bundles via Stripe in the Pearl Fishery, then spend them on priced items in the Catalog. When someone buys an item you uploaded, you earn Pearls from the sale. If you've earned Pearls, you can cash them out to real money by setting up a payout account through Stripe Connect in the Pearl Fishery.</div>
+          </div>
+          <div>
             <strong>What dimensions should I know for building and uploading?</strong>
             <div style={{ color: '#ccc' }}>
               Rooms are 800×600 pixels. Exits default to 100×100 pixels. All coordinates and sizes are relative to the room canvas.<br /><br />
