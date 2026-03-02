@@ -169,7 +169,6 @@ export default function PearlShop({ authToken, onBack }) {
       {balance !== null && (
         <div style={styles.balance}>
           You have <strong>{balance}</strong> Pearl{balance !== 1 ? 's' : ''}
-          {balance > 0 && <span style={{ color: '#aaa', fontSize: '0.85rem' }}> (${(balance * 0.05).toFixed(2)} value)</span>}
         </div>
       )}
 
@@ -182,7 +181,6 @@ export default function PearlShop({ authToken, onBack }) {
             <div key={b.pearls} style={styles.bundleCard}>
               <img src={`/pearls/bundle-${i + 1}.png`} alt="" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
               <div style={styles.pearlCount}>{b.pearls} Pearls</div>
-              <div style={styles.pearlValue}>${(b.pearls * 0.05).toFixed(2)} value</div>
               <button style={styles.buyButton} onClick={() => handleBuy(b.pearls)}>
                 {b.display}
               </button>
