@@ -172,7 +172,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
   }
 
   if (showCatalog) {
-    return <Catalog authToken={authToken} accountId={accountId} penguinName={penguinName} onBack={() => setShowCatalog(false)} />;
+    return <Catalog authToken={authToken} accountId={accountId} penguinName={penguinName} onBack={() => setShowCatalog(false)} onPearlShop={() => { setShowCatalog(false); setShowPearlShop(true); }} />;
   }
 
   if (showCreate || editingCpId) {

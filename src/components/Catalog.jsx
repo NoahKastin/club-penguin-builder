@@ -155,7 +155,7 @@ const styles = {
   },
 };
 
-export default function Catalog({ authToken, accountId, penguinName, onBack }) {
+export default function Catalog({ authToken, accountId, penguinName, onBack, onPearlShop }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
@@ -170,6 +170,7 @@ export default function Catalog({ authToken, accountId, penguinName, onBack }) {
   const [favorites, setFavorites] = useState(new Set());
   const [purchases, setPurchases] = useState(new Set());
   const [balance, setBalance] = useState(0);
+  const [needsPearls, setNeedsPearls] = useState(false);
 
   useEffect(() => {
     fetchRetry('/api/catalog')
@@ -291,13 +292,18 @@ export default function Catalog({ authToken, accountId, penguinName, onBack }) {
 
   function handlePurchase(itemId) {
     setError('');
+    setNeedsPearls(false);
     fetch(`/api/catalog/${itemId}/purchase`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
     })
       .then(r => r.json())
       .then(data => {
-        if (data.error) { setError(data.error); return; }
+        if (data.error) {
+          setError(data.error);
+          if (data.error.toLowerCase().includes('enough')) setNeedsPearls(true);
+          return;
+        }
         setPurchases(prev => new Set([...prev, itemId]));
         setBalance(data.pearls);
         setSuccess('Item purchased!');
@@ -432,6 +438,14 @@ export default function Catalog({ authToken, accountId, penguinName, onBack }) {
         </div>
       )}
 
+      {needsPearls && onPearlShop && (
+        <button
+          style={{ ...styles.button, background: '#d9a04a' }}
+          onClick={onPearlShop}
+        >
+          Get Pearls
+        </button>
+      )}
       <button style={styles.backButton} onClick={onBack}>Back</button>
     </div>
   );

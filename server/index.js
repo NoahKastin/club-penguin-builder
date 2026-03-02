@@ -465,12 +465,9 @@ io.on('connection', (socket) => {
       penguins: getPenguinsInCPRoom(cpId, penguin.roomId),
       you: penguin.id,
       catalogItems: resolveCatalogItems(room),
+      inventory: penguin.inventory,
+      clothes: penguin.clothes,
     });
-
-    // Send inventory to the joining player
-    if (penguin.inventory.length > 0) {
-      socket.emit('inventoryUpdated', { inventory: penguin.inventory, clothes: penguin.clothes });
-    }
 
     broadcastToCPRoom(cpId, penguin.roomId, 'penguinJoined', penguin, socket.id);
     io.emit('clubPenguinUpdated', cpSummary(cpId));

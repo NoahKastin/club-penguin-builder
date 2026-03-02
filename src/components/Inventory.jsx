@@ -119,6 +119,12 @@ export default function Inventory({ authToken }) {
   const [favorites, setFavorites] = useState(new Set());
 
   useEffect(() => {
+    function onRoomState(data) {
+      if (data.inventory && data.inventory.length > 0) {
+        setInventory(data.inventory);
+        setClothes(data.clothes || []);
+      }
+    }
     function onItemCollected(data) {
       setInventory(data.inventory || []);
     }
@@ -127,6 +133,7 @@ export default function Inventory({ authToken }) {
       setClothes(data.clothes || []);
     }
 
+    socket.on('roomState', onRoomState);
     socket.on('itemCollected', onItemCollected);
     socket.on('inventoryUpdated', onInventoryUpdated);
 
@@ -145,6 +152,7 @@ export default function Inventory({ authToken }) {
     }
 
     return () => {
+      socket.off('roomState', onRoomState);
       socket.off('itemCollected', onItemCollected);
       socket.off('inventoryUpdated', onInventoryUpdated);
     };
