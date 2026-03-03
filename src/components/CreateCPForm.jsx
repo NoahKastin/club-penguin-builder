@@ -217,7 +217,7 @@ function RoomPreview({ room, catalogItems }) {
 export default function CreateCPForm({ editCpId, authToken, accountId, onCreated, onCancel }) {
   const [cpName, setCpName] = useState('');
   const [rooms, setRooms] = useState([
-    { tempId: 'room_1', name: 'Lobby', bgColor: '#333333', hidden: false, exits: [], items: [] },
+    { tempId: 'room_1', name: 'Lobby', bgColor: '#333333', hidden: false, gravityDirection: null, exits: [], items: [] },
   ]);
   const [partyName, setPartyName] = useState('');
   const [error, setError] = useState('');
@@ -260,6 +260,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
           name: r.name,
           bgColor: r.bgColor,
           hidden: r.hidden || false,
+          gravityDirection: r.gravityDirection || null,
           exits: (r.exits || []).map(e => ({
             targetRoom: e.targetRoom,
             label: e.label,
@@ -283,7 +284,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
   }, [editCpId]);
 
   function addRoom() {
-    setRooms([...rooms, { tempId: makeRoomId(), name: '', bgColor: '#333333', hidden: false, exits: [], items: [] }]);
+    setRooms([...rooms, { tempId: makeRoomId(), name: '', bgColor: '#333333', hidden: false, gravityDirection: null, exits: [], items: [] }]);
   }
 
   function removeRoom(index) {
@@ -346,7 +347,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
       ...updated[roomIndex],
       items: [...updated[roomIndex].items, {
         catalogId: defaultCatalogId, x: 100, y: 100, width: 100, height: 100, rotation: 0,
-        behavior: null, blocksMovement: false, skid: false, wearOffsetX: 0, wearOffsetY: 0, wearWidth: 40, wearHeight: 40,
+        behavior: null, blocksMovement: false, skid: false, gravity: false, wearOffsetX: 0, wearOffsetY: 0, wearWidth: 40, wearHeight: 40,
       }],
     };
     setRooms(updated);
@@ -422,6 +423,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
         name: room.name.trim(),
         bgColor: room.bgColor,
         hidden: room.hidden || false,
+        gravityDirection: room.gravityDirection || null,
         exits: room.exits.map(e => ({
           targetRoom: e.targetRoom,
           label: e.label || rooms.find(r => r.tempId === e.targetRoom)?.name || e.targetRoom,
@@ -431,7 +433,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
           height: e.height,
         })),
         items: (room.items || []).map(item => {
-          const base = { catalogId: item.catalogId, x: item.x, y: item.y, width: item.width, height: item.height, rotation: item.rotation || 0, behavior: item.behavior, blocksMovement: !!item.blocksMovement, skid: !!item.skid };
+          const base = { catalogId: item.catalogId, x: item.x, y: item.y, width: item.width, height: item.height, rotation: item.rotation || 0, behavior: item.behavior, blocksMovement: !!item.blocksMovement, skid: !!item.skid, gravity: !!item.gravity };
           if (item.behavior === 'collectible') {
             base.wearOffsetX = item.wearOffsetX || 0;
             base.wearOffsetY = item.wearOffsetY || 0;
@@ -521,6 +523,23 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
             />
           </div>
 
+          {(room.items || []).some(i => i.gravity) && (
+            <div style={styles.row}>
+              <label style={styles.label}>Gravity:</label>
+              <select
+                style={styles.select}
+                value={room.gravityDirection || 'down'}
+                onChange={(e) => updateRoom(ri, 'gravityDirection', e.target.value)}
+              >
+                <option value="down">Down</option>
+                <option value="up">Up</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+                <option value="center">Center</option>
+              </select>
+            </div>
+          )}
+
           <div style={{ fontSize: '0.9rem', color: '#aaa' }}>Exits</div>
           {room.exits.map((exit, ei) => (
             <div key={ei} style={styles.exitCard}>
@@ -599,7 +618,11 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                 </label>
                 <label style={{ ...styles.label, marginLeft: '12px' }}>
                   <input type="checkbox" checked={!!item.skid} onChange={(e) => updateItem(ri, ii, 'skid', e.target.checked)} />
-                  {' '}Skid
+                  {' '}Skids
+                </label>
+                <label style={{ ...styles.label, marginLeft: '12px' }}>
+                  <input type="checkbox" checked={!!item.gravity} onChange={(e) => updateItem(ri, ii, 'gravity', e.target.checked)} />
+                  {' '}Gravity
                 </label>
               </div>
               <div style={styles.row}>

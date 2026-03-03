@@ -136,12 +136,14 @@ export function adjustMoveTarget(fromX, fromY, toX, toY, blockers, depth = 0) {
   return adjustMoveTarget(stopX, stopY, slideX, slideY, blockers, depth + 1);
 }
 
-// Skid/bounce physics simulation.
-// Returns array of {x, y} keyframes (item center positions).
-const FRICTION = 0.96;
-const BOUNCE = 0.3;
-const STOP_THRESHOLD = 0.5;
+// Shared physics constants and helpers.
 const MAX_STEPS = 300;
+
+// Skid/bounce physics simulation.
+// Returns array of {x, y} keyframes (item top-left positions).
+const SKID_FRICTION = 0.96;
+const SKID_BOUNCE = 0.3;
+const SKID_STOP = 0.5;
 
 export function simulateSkid(startX, startY, itemW, itemH, vx, vy, blockers, roomW = 800, roomH = 600) {
   let x = startX;
@@ -153,35 +155,109 @@ export function simulateSkid(startX, startY, itemW, itemH, vx, vy, blockers, roo
     y += vy;
 
     // Wall bounce (item edges)
-    if (x < 0) { x = 0; vx = -vx * BOUNCE; }
-    if (x + itemW > roomW) { x = roomW - itemW; vx = -vx * BOUNCE; }
-    if (y < 0) { y = 0; vy = -vy * BOUNCE; }
-    if (y + itemH > roomH) { y = roomH - itemH; vy = -vy * BOUNCE; }
+    if (x < 0) { x = 0; vx = -vx * SKID_BOUNCE; }
+    if (x + itemW > roomW) { x = roomW - itemW; vx = -vx * SKID_BOUNCE; }
+    if (y < 0) { y = 0; vy = -vy * SKID_BOUNCE; }
+    if (y + itemH > roomH) { y = roomH - itemH; vy = -vy * SKID_BOUNCE; }
 
     // Blocker bounce
     for (const b of blockers) {
-      // Check overlap between item rect and blocker rect
       if (x < b.x + b.w && x + itemW > b.x && y < b.y + b.h && y + itemH > b.y) {
-        // Find which axis has least overlap to resolve
         const overlapLeft = (x + itemW) - b.x;
         const overlapRight = (b.x + b.w) - x;
         const overlapTop = (y + itemH) - b.y;
         const overlapBottom = (b.y + b.h) - y;
         const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
-
-        if (minOverlap === overlapLeft) { x = b.x - itemW; vx = -vx * BOUNCE; }
-        else if (minOverlap === overlapRight) { x = b.x + b.w; vx = -vx * BOUNCE; }
-        else if (minOverlap === overlapTop) { y = b.y - itemH; vy = -vy * BOUNCE; }
-        else { y = b.y + b.h; vy = -vy * BOUNCE; }
+        if (minOverlap === overlapLeft) { x = b.x - itemW; vx = -vx * SKID_BOUNCE; }
+        else if (minOverlap === overlapRight) { x = b.x + b.w; vx = -vx * SKID_BOUNCE; }
+        else if (minOverlap === overlapTop) { y = b.y - itemH; vy = -vy * SKID_BOUNCE; }
+        else { y = b.y + b.h; vy = -vy * SKID_BOUNCE; }
       }
     }
 
-    vx *= FRICTION;
-    vy *= FRICTION;
+    vx *= SKID_FRICTION;
+    vy *= SKID_FRICTION;
 
     frames.push({ x, y });
 
-    if (Math.abs(vx) < STOP_THRESHOLD && Math.abs(vy) < STOP_THRESHOLD) break;
+    if (Math.abs(vx) < SKID_STOP && Math.abs(vy) < SKID_STOP) break;
+  }
+
+  return frames;
+}
+
+// Gravity physics simulation.
+// Returns array of {x, y} keyframes. Item falls toward gravity direction until resting.
+const GRAV_FRICTION = 0.92;
+const GRAV_BOUNCE = 0.05;
+const GRAV_STOP = 0.3;
+const GRAVITY_STRENGTH = 0.3; // pixels/frame²
+
+export function getGravityAccel(direction, itemX, itemY, itemW, itemH) {
+  switch (direction) {
+    case 'up': return { gx: 0, gy: -GRAVITY_STRENGTH };
+    case 'left': return { gx: -GRAVITY_STRENGTH, gy: 0 };
+    case 'right': return { gx: GRAVITY_STRENGTH, gy: 0 };
+    case 'center': {
+      const cx = itemX + itemW / 2;
+      const cy = itemY + itemH / 2;
+      const dx = 400 - cx;
+      const dy = 300 - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 1) return { gx: 0, gy: 0 };
+      return { gx: (dx / dist) * GRAVITY_STRENGTH, gy: (dy / dist) * GRAVITY_STRENGTH };
+    }
+    default: return { gx: 0, gy: GRAVITY_STRENGTH }; // 'down'
+  }
+}
+
+export function simulateGravity(startX, startY, itemW, itemH, direction, blockers, roomW = 800, roomH = 600) {
+  let x = startX;
+  let y = startY;
+  let vx = 0;
+  let vy = 0;
+  const frames = [{ x, y }];
+
+  for (let i = 0; i < MAX_STEPS; i++) {
+    // Apply gravity acceleration (recalculated each step for 'center' direction)
+    const { gx, gy } = getGravityAccel(direction, x, y, itemW, itemH);
+    vx += gx;
+    vy += gy;
+
+    x += vx;
+    y += vy;
+
+    // Wall collision
+    let hitWall = false;
+    if (x < 0) { x = 0; vx = -vx * GRAV_BOUNCE; hitWall = true; }
+    if (x + itemW > roomW) { x = roomW - itemW; vx = -vx * GRAV_BOUNCE; hitWall = true; }
+    if (y < 0) { y = 0; vy = -vy * GRAV_BOUNCE; hitWall = true; }
+    if (y + itemH > roomH) { y = roomH - itemH; vy = -vy * GRAV_BOUNCE; hitWall = true; }
+
+    // Blocker collision
+    let hitBlocker = false;
+    for (const b of blockers) {
+      if (x < b.x + b.w && x + itemW > b.x && y < b.y + b.h && y + itemH > b.y) {
+        const overlapLeft = (x + itemW) - b.x;
+        const overlapRight = (b.x + b.w) - x;
+        const overlapTop = (y + itemH) - b.y;
+        const overlapBottom = (b.y + b.h) - y;
+        const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+        if (minOverlap === overlapLeft) { x = b.x - itemW; vx = -vx * GRAV_BOUNCE; }
+        else if (minOverlap === overlapRight) { x = b.x + b.w; vx = -vx * GRAV_BOUNCE; }
+        else if (minOverlap === overlapTop) { y = b.y - itemH; vy = -vy * GRAV_BOUNCE; }
+        else { y = b.y + b.h; vy = -vy * GRAV_BOUNCE; }
+        hitBlocker = true;
+      }
+    }
+
+    vx *= GRAV_FRICTION;
+    vy *= GRAV_FRICTION;
+
+    frames.push({ x, y });
+
+    // Stop when velocity is negligible AND resting against a surface
+    if (Math.abs(vx) < GRAV_STOP && Math.abs(vy) < GRAV_STOP && (hitWall || hitBlocker)) break;
   }
 
   return frames;

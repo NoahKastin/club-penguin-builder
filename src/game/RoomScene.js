@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import Penguin from './Penguin';
 import * as socket from '../network/socket';
-import { adjustMoveTarget, simulateSkid } from '../../shared/collision.js';
+import { adjustMoveTarget, simulateSkid, simulateGravity } from '../../shared/collision.js';
 
 let textureCounter = 0;
 
@@ -22,6 +22,7 @@ export default class RoomScene extends Phaser.Scene {
     this.lastDragEmit = 0;
     this.pendingDragOverrides = null;
     this.skidAnimations = new Set(); // item indices currently sliding
+    this.pendingGravity = new Map(); // itemIndex → gravity event data (queued while skid animating)
   }
 
   create() {
@@ -251,6 +252,12 @@ export default class RoomScene extends Phaser.Scene {
           frameIdx++;
           if (frameIdx >= frames.length) {
             this.skidAnimations.delete(data.itemIndex);
+            // Check for queued gravity after skid finishes
+            const pendingGrav = this.pendingGravity.get(data.itemIndex);
+            if (pendingGrav) {
+              this.pendingGravity.delete(data.itemIndex);
+              this.onItemGravity(pendingGrav);
+            }
             return;
           }
           const f = frames[frameIdx];
@@ -272,6 +279,40 @@ export default class RoomScene extends Phaser.Scene {
       }
     };
 
+    this.onItemGravity = (data) => {
+      const zone = this.itemZones[data.itemIndex];
+      if (!zone || !zone.img) return;
+      // If skid animation is in progress, queue gravity for after it finishes
+      if (this.skidAnimations.has(data.itemIndex)) {
+        this.pendingGravity.set(data.itemIndex, data);
+        return;
+      }
+
+      const blockers = this.getBlockers(data.itemIndex);
+      const frames = simulateGravity(data.startX, data.startY, zone.w, zone.h, data.direction, blockers);
+      if (frames.length < 2) return;
+
+      this.skidAnimations.add(data.itemIndex);
+      let frameIdx = 0;
+      const step = () => {
+        if (!this.scene || !this.scene.isActive() || !zone.img) {
+          this.skidAnimations.delete(data.itemIndex);
+          return;
+        }
+        frameIdx++;
+        if (frameIdx >= frames.length) {
+          this.skidAnimations.delete(data.itemIndex);
+          return;
+        }
+        const f = frames[frameIdx];
+        zone.x = f.x;
+        zone.y = f.y;
+        zone.img.setPosition(f.x + zone.w / 2, f.y + zone.h / 2);
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    };
+
     socket.on('roomState', this.onRoomState);
     socket.on('penguinJoined', this.onPenguinJoined);
     socket.on('penguinLeft', this.onPenguinLeft);
@@ -282,6 +323,7 @@ export default class RoomScene extends Phaser.Scene {
     socket.on('itemDragMoved', this.onItemDragMoved);
     socket.on('itemDragEnd', this.onItemDragEnd);
     socket.on('itemPushed', this.onItemPushed);
+    socket.on('itemGravity', this.onItemGravity);
 
     this.events.on('destroy', this.cleanup, this);
     socket.sceneReady();
@@ -298,6 +340,7 @@ export default class RoomScene extends Phaser.Scene {
     socket.off('itemDragMoved', this.onItemDragMoved);
     socket.off('itemDragEnd', this.onItemDragEnd);
     socket.off('itemPushed', this.onItemPushed);
+    socket.off('itemGravity', this.onItemGravity);
   }
 
   showPickupDialog(item) {
@@ -491,6 +534,7 @@ export default class RoomScene extends Phaser.Scene {
       wearHeight: item.wearHeight || 40,
       blocksMovement: !!item.blocksMovement,
       skid: !!item.skid,
+      gravity: !!item.gravity,
       img: null,
       lockedBy: (dragOverride && dragOverride.draggedBy) || null,
     };
@@ -543,5 +587,6 @@ export default class RoomScene extends Phaser.Scene {
     socket.off('itemDragMoved', this.onItemDragMoved);
     socket.off('itemDragEnd', this.onItemDragEnd);
     socket.off('itemPushed', this.onItemPushed);
+    socket.off('itemGravity', this.onItemGravity);
   }
 }

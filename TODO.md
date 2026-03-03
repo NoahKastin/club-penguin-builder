@@ -53,7 +53,7 @@
 - [x] Draggable by penguins (resets and persists variants, one-at-a-time locking, black glow)
 - [x] Resizable items within rooms (width/height fields in room editor)
 - [x] Physics: skid/bounce (penguin-pushed items slide with friction, bounce off walls and blockers)
-- [ ] Gravity toward a location (item-level; will also require item-item collision)
+- [x] Gravity toward a direction (per-room direction: down/up/left/right/center; items settle on load, after skid, after drag release; collide with blocksMovement items)
 - [x] Block penguin movement (slide along edge; composable with other behaviors via checkbox)
 - [x] Clothes equip without regard for item slots (later-equipped goes on top); puffles are a subset of clothes
 - [x] Collectible items display with white glow shadow; draggable items display with black glow shadow

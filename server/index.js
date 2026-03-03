@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import geoip from 'fast-geoip';
-import { adjustMoveTarget, lineRectIntersection, simulateSkid } from '../shared/collision.js';
+import { adjustMoveTarget, lineRectIntersection, simulateSkid, simulateGravity } from '../shared/collision.js';
 import db from './db.js';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, updateRoomItemPosition, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession, updateAttributionName } from './accounts.js';
@@ -508,6 +508,94 @@ const uploadBans = new Map(); // accountId → ban expiry timestamp
 // Chat rate limiting: per-socket tracking
 const chatRateLimits = new Map();
 
+// Resolve current item positions for a room (accounting for drag overrides)
+function resolveRoomItems(room, cpId, roomId) {
+  const dragOverrides = getDragOverrides(cpId, roomId);
+  return room.items.map((i, idx) => {
+    const ov = dragOverrides && dragOverrides[idx];
+    return {
+      x: (ov && ov.x != null) ? ov.x : i.x,
+      y: (ov && ov.y != null) ? ov.y : i.y,
+      w: i.width, h: i.height,
+      blocksMovement: i.blocksMovement,
+      skid: i.skid,
+      gravity: i.gravity,
+      behavior: i.behavior,
+      idx,
+    };
+  });
+}
+
+// Settle all gravity items in a room. Sorts by proximity to gravity floor
+// so items stack correctly. Returns array of {itemIndex, startX, startY} for broadcasting.
+function settleGravityItems(cpId, roomId, room) {
+  const direction = room.gravityDirection || 'down';
+  const resolved = resolveRoomItems(room, cpId, roomId);
+  const gravityItems = resolved.filter(i => i.gravity);
+  if (gravityItems.length === 0) return [];
+
+  // Sort by proximity to gravity "floor" (items closest to floor settle first)
+  gravityItems.sort((a, b) => {
+    switch (direction) {
+      case 'down': return (b.y + b.h) - (a.y + a.h); // bottom-most first
+      case 'up': return a.y - b.y; // top-most first
+      case 'right': return (b.x + b.w) - (a.x + a.w);
+      case 'left': return a.x - b.x;
+      case 'center': {
+        const distA = Math.sqrt((a.x + a.w / 2 - 400) ** 2 + (a.y + a.h / 2 - 300) ** 2);
+        const distB = Math.sqrt((b.x + b.w / 2 - 400) ** 2 + (b.y + b.h / 2 - 300) ** 2);
+        return distA - distB; // closest to center first
+      }
+      default: return 0;
+    }
+  });
+
+  const events = [];
+  for (const item of gravityItems) {
+    // Rebuild blockers each iteration (previous items may have settled into new positions)
+    const currentResolved = resolveRoomItems(room, cpId, roomId);
+    const blockers = currentResolved
+      .filter(i => i.blocksMovement && i.idx !== item.idx)
+      .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
+
+    const frames = simulateGravity(item.x, item.y, item.w, item.h, direction, blockers);
+    const finalPos = frames[frames.length - 1];
+
+    // Only broadcast/store if the item actually moved
+    if (Math.abs(finalPos.x - item.x) > 0.5 || Math.abs(finalPos.y - item.y) > 0.5) {
+      setItemPosition(cpId, roomId, item.idx, finalPos.x, finalPos.y);
+      if (room.items[item.idx].behavior === 'draggable-persist') {
+        updateRoomItemPosition(cpId, roomId, item.idx, finalPos.x, finalPos.y);
+      }
+      events.push({ itemIndex: item.idx, startX: item.x, startY: item.y, direction });
+    }
+  }
+  return events;
+}
+
+// Run gravity on a single item and broadcast. Returns final position or null if no movement.
+function applyGravityToItem(cpId, roomId, room, itemIndex) {
+  const direction = room.gravityDirection || 'down';
+  const resolved = resolveRoomItems(room, cpId, roomId);
+  const item = resolved[itemIndex];
+  if (!item || !item.gravity) return null;
+
+  const blockers = resolved
+    .filter(i => i.blocksMovement && i.idx !== itemIndex)
+    .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
+
+  const frames = simulateGravity(item.x, item.y, item.w, item.h, direction, blockers);
+  const finalPos = frames[frames.length - 1];
+
+  if (Math.abs(finalPos.x - item.x) < 0.5 && Math.abs(finalPos.y - item.y) < 0.5) return null;
+
+  setItemPosition(cpId, roomId, itemIndex, finalPos.x, finalPos.y);
+  if (room.items[itemIndex].behavior === 'draggable-persist') {
+    updateRoomItemPosition(cpId, roomId, itemIndex, finalPos.x, finalPos.y);
+  }
+  return { itemIndex, startX: item.x, startY: item.y, direction };
+}
+
 function wireSocketEvents() {
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
@@ -558,6 +646,12 @@ io.on('connection', (socket) => {
     }
 
     const room = cp.rooms[penguin.roomId];
+
+    // Settle gravity items before sending room state
+    if (room && room.items) {
+      settleGravityItems(cpId, penguin.roomId, room);
+    }
+
     socket.emit('roomState', {
       room,
       penguins: getPenguinsInCPRoom(cpId, penguin.roomId),
@@ -586,18 +680,7 @@ io.on('connection', (socket) => {
         const dragOverrides = getDragOverrides(penguin.cpId, penguin.roomId);
 
         // Resolve current item positions (accounting for drag overrides)
-        const resolvedItems = room.items.map((i, idx) => {
-          const ov = dragOverrides && dragOverrides[idx];
-          return {
-            x: (ov && ov.x != null) ? ov.x : i.x,
-            y: (ov && ov.y != null) ? ov.y : i.y,
-            w: i.width, h: i.height,
-            blocksMovement: i.blocksMovement,
-            skid: i.skid,
-            behavior: i.behavior,
-            idx,
-          };
-        });
+        const resolvedItems = resolveRoomItems(room, penguin.cpId, penguin.roomId);
 
         // Save original target for skid detection (before blocker adjustment)
         const origX = x;
@@ -651,6 +734,14 @@ io.on('connection', (socket) => {
               hitT: hit.t,
               penguinDistance: origDistance,
             });
+
+            // If pushed item has gravity, apply gravity after skid settles
+            if (room.items[item.idx].gravity) {
+              const gravEvent = applyGravityToItem(penguin.cpId, penguin.roomId, room, item.idx);
+              if (gravEvent) {
+                broadcastToCPRoom(penguin.cpId, penguin.roomId, 'itemGravity', gravEvent);
+              }
+            }
           }
         }
       }
@@ -700,6 +791,12 @@ io.on('connection', (socket) => {
     changePenguinRoom(socket.id, roomId);
 
     const newRoom = cp.rooms[roomId];
+
+    // Settle gravity items before sending room state
+    if (newRoom && newRoom.items) {
+      settleGravityItems(penguin.cpId, roomId, newRoom);
+    }
+
     socket.emit('roomState', {
       room: newRoom,
       penguins: getPenguinsInCPRoom(penguin.cpId, roomId),
@@ -857,6 +954,19 @@ io.on('connection', (socket) => {
       x: entry.x,
       y: entry.y,
     }, socket.id);
+
+    // If released item has gravity, apply gravity from release point
+    if (cp) {
+      const room = cp.rooms[penguin.roomId];
+      if (room && room.items && room.items[itemIndex] && room.items[itemIndex].gravity) {
+        // Set the release position first so gravity starts from there
+        setItemPosition(penguin.cpId, penguin.roomId, itemIndex, entry.x, entry.y);
+        const gravEvent = applyGravityToItem(penguin.cpId, penguin.roomId, room, itemIndex);
+        if (gravEvent) {
+          broadcastToCPRoom(penguin.cpId, penguin.roomId, 'itemGravity', gravEvent);
+        }
+      }
+    }
   });
 
   function validateItemAccess(rooms, accountId) {

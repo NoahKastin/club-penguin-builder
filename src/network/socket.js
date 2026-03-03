@@ -26,6 +26,7 @@ const listeners = {
   itemDragMoved: [],
   itemDragEnd: [],
   itemPushed: [],
+  itemGravity: [],
 };
 
 // Register server event forwarding
