@@ -135,7 +135,7 @@ export default function NameEntry({ onJoin }) {
   return (
     <div style={styles.container}>
       <div style={styles.wrapper}>
-        <img src="/logo.svg" alt="Club Penguin Builder" style={styles.logo} />
+        <img src="/logo.svg" alt="Club Penguin Builder" style={{ ...styles.logo, filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.6))' }} />
 
         <div style={styles.tabs}>
           <button style={tabStyle('guest')} onClick={() => { setTab('guest'); setError(''); }}>Guest</button>
@@ -144,7 +144,7 @@ export default function NameEntry({ onJoin }) {
         </div>
 
         <div style={{ fontSize: '0.85rem', color: '#888', textAlign: 'center' }}>
-          {tab === 'guest' ? 'Jump in and play! Create an account to build your own Club Penguin.' : 'Accounts can create and manage Club Penguins.'}
+          {tab === 'guest' ? 'Jump in and play! Create an account to build your own Club Penguin and keep your inventory.' : 'Accounts can create and manage Club Penguins, and your inventory persists across sessions.'}
         </div>
 
         {error && <div style={styles.error}>{error}</div>}
