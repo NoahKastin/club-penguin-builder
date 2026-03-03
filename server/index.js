@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import geoip from 'fast-geoip';
+import { adjustMoveTarget } from '../shared/collision.js';
 import db from './db.js';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, updateRoomItemPosition, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession, updateAttributionName } from './accounts.js';
@@ -574,14 +575,35 @@ io.on('connection', (socket) => {
     // Clamp to room bounds
     x = Math.max(0, Math.min(800, x));
     y = Math.max(0, Math.min(600, y));
-    const penguin = movePenguin(socket.id, x, y);
-    if (penguin) {
-      broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinMoved', {
-        id: penguin.id,
-        x,
-        y,
-      }, socket.id);
+    const penguin = getPenguin(socket.id);
+    if (!penguin) return;
+
+    // Apply collision with blocking items
+    const cp = getClubPenguin(penguin.cpId);
+    if (cp) {
+      const room = cp.rooms[penguin.roomId];
+      if (room && room.items) {
+        const dragOverrides = getDragOverrides(penguin.cpId, penguin.roomId);
+        const blockers = room.items
+          .filter(i => i.blocksMovement)
+          .map((i, idx) => {
+            const ov = dragOverrides && dragOverrides[idx];
+            return { x: (ov && ov.x != null) ? ov.x : i.x, y: (ov && ov.y != null) ? ov.y : i.y, w: i.width, h: i.height };
+          });
+        if (blockers.length > 0) {
+          const adjusted = adjustMoveTarget(penguin.x, penguin.y, x, y, blockers);
+          x = adjusted.x;
+          y = adjusted.y;
+        }
+      }
     }
+
+    movePenguin(socket.id, x, y);
+    broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinMoved', {
+      id: penguin.id,
+      x,
+      y,
+    }, socket.id);
   });
 
   socket.on('chat', (message) => {

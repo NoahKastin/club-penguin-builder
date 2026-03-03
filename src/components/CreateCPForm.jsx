@@ -177,7 +177,8 @@ function RoomPreview({ room, catalogItems }) {
                   height: item.height * scale,
                   transform: rot ? `rotate(${rot}deg)` : undefined,
                   objectFit: 'fill',
-                  border: item.behavior === 'collectible' ? '2px solid white' : item.behavior?.startsWith('draggable') ? '2px solid black' : 'none',
+                  border: item.behavior === 'collectible' ? '2px solid white' : item.behavior?.startsWith('draggable') ? '2px solid black' : item.blocksMovement ? '2px dashed red' : 'none',
+                  outline: item.blocksMovement && item.behavior ? '2px dashed red' : 'none',
                   pointerEvents: 'none',
                 }}
               />
@@ -345,7 +346,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
       ...updated[roomIndex],
       items: [...updated[roomIndex].items, {
         catalogId: defaultCatalogId, x: 100, y: 100, width: 100, height: 100, rotation: 0,
-        behavior: null, wearOffsetX: 0, wearOffsetY: 0, wearWidth: 40, wearHeight: 40,
+        behavior: null, blocksMovement: false, wearOffsetX: 0, wearOffsetY: 0, wearWidth: 40, wearHeight: 40,
       }],
     };
     setRooms(updated);
@@ -430,7 +431,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
           height: e.height,
         })),
         items: (room.items || []).map(item => {
-          const base = { catalogId: item.catalogId, x: item.x, y: item.y, width: item.width, height: item.height, rotation: item.rotation || 0, behavior: item.behavior };
+          const base = { catalogId: item.catalogId, x: item.x, y: item.y, width: item.width, height: item.height, rotation: item.rotation || 0, behavior: item.behavior, blocksMovement: !!item.blocksMovement };
           if (item.behavior === 'collectible') {
             base.wearOffsetX = item.wearOffsetX || 0;
             base.wearOffsetY = item.wearOffsetY || 0;
@@ -592,6 +593,10 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                   <option value="draggable">Draggable (resets)</option>
                   <option value="draggable-persist">Draggable (persists)</option>
                 </select>
+                <label style={{ ...styles.label, marginLeft: '12px' }}>
+                  <input type="checkbox" checked={!!item.blocksMovement} onChange={(e) => updateItem(ri, ii, 'blocksMovement', e.target.checked)} />
+                  {' '}Blocks movement
+                </label>
               </div>
               <div style={styles.row}>
                 <label style={styles.label}>x</label>

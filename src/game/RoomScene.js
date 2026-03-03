@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import Penguin from './Penguin';
 import * as socket from '../network/socket';
+import { adjustMoveTarget } from '../../shared/collision.js';
 
 let textureCounter = 0;
 
@@ -99,8 +100,9 @@ export default class RoomScene extends Phaser.Scene {
       // Move local penguin
       if (this.localId && this.penguins.has(this.localId)) {
         const penguin = this.penguins.get(this.localId);
-        penguin.moveTo(pointer.x, pointer.y);
-        socket.move(pointer.x, pointer.y);
+        const adjusted = adjustMoveTarget(penguin.sprite.x, penguin.sprite.y, pointer.x, pointer.y, this.getBlockers());
+        penguin.moveTo(adjusted.x, adjusted.y);
+        socket.move(adjusted.x, adjusted.y);
       }
     });
 
@@ -319,20 +321,28 @@ export default class RoomScene extends Phaser.Scene {
   walkToExit(exit) {
     if (!this.localId || !this.penguins.has(this.localId)) return;
 
-    this.walkingToExit = true;
     const penguin = this.penguins.get(this.localId);
     const targetX = exit.x + exit.w / 2;
     const targetY = exit.y + exit.h / 2;
+    const adjusted = adjustMoveTarget(penguin.sprite.x, penguin.sprite.y, targetX, targetY, this.getBlockers());
 
-    penguin.moveTo(targetX, targetY);
-    socket.move(targetX, targetY);
+    // If blocked from reaching exit, just walk to the adjusted point (don't change room)
+    const reachedExit = Math.abs(adjusted.x - targetX) < 10 && Math.abs(adjusted.y - targetY) < 10;
 
-    const distance = Phaser.Math.Distance.Between(penguin.sprite.x, penguin.sprite.y, targetX, targetY);
-    const duration = Math.max(200, distance * 3);
+    if (reachedExit) {
+      this.walkingToExit = true;
+    }
 
-    this.time.delayedCall(duration + 50, () => {
-      socket.changeRoom(exit.targetRoom);
-    });
+    penguin.moveTo(adjusted.x, adjusted.y);
+    socket.move(adjusted.x, adjusted.y);
+
+    if (reachedExit) {
+      const distance = Phaser.Math.Distance.Between(penguin.sprite.x, penguin.sprite.y, adjusted.x, adjusted.y);
+      const duration = Math.max(200, distance * 3);
+      this.time.delayedCall(duration + 50, () => {
+        socket.changeRoom(exit.targetRoom);
+      });
+    }
   }
 
   loadRoom(room, penguinList) {
@@ -416,6 +426,7 @@ export default class RoomScene extends Phaser.Scene {
       wearOffsetY: item.wearOffsetY || 0,
       wearWidth: item.wearWidth || 40,
       wearHeight: item.wearHeight || 40,
+      blocksMovement: !!item.blocksMovement,
       img: null,
       lockedBy: (dragOverride && dragOverride.draggedBy) || null,
     };
@@ -449,6 +460,12 @@ export default class RoomScene extends Phaser.Scene {
     }
 
     this.itemZones.push(zone);
+  }
+
+  getBlockers() {
+    return this.itemZones
+      .filter(z => z.blocksMovement)
+      .map(z => ({ x: z.x, y: z.y, w: z.w, h: z.h }));
   }
 
   shutdown() {

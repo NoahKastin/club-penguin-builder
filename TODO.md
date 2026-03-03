@@ -50,11 +50,12 @@
 - [x] Collectible by penguins (clothes: render on penguins — pins, colors/sprites, costumes, hats, etc.)
 - [x] Draggable by penguins (resets and persists variants, one-at-a-time locking, black glow)
 - [x] Resizable items within rooms (width/height fields in room editor)
-- [ ] Physics: skid/bounce, gravity toward a location
-- [ ] Block penguin movement
+- [ ] Physics: skid/bounce
+- [ ] Gravity toward a location (item-level; will also require item-item collision)
+- [x] Block penguin movement (slide along edge; composable with other behaviors via checkbox)
 - [x] Clothes equip without regard for item slots (later-equipped goes on top); puffles are a subset of clothes
-- [ ] Configurable memory limit for clothes per penguin
-- [x] Collectible items display with white glow shadow; draggable items (future) will display with black glow shadow; behaviors are mutually exclusive
+- [x] Collectible items display with white glow shadow; draggable items display with black glow shadow
+- [x] Behaviors are composable: interaction type (collectible/draggable) via dropdown + modifier flags (blocks movement, etc.) via checkboxes
 
 ## Moderation
 - [ ] Rules stated per Club Penguin
@@ -76,7 +77,7 @@
 - [ ] Funding model (deferred — hosting costs too low to justify billing; revisit at scale): supporters pledge one-time, costs divided proportionally by usage-weighted player-hours per CP; subscription revenue from Monetization offsets costs for supporters
 - [ ] Separate tiers for paying to support the server vs. paying to support those who are supporting the server; moderation-choice perks can be gated behind either
 - [ ] Supporters are not synonymous with party planners (someone can pay to support without having rights to adjust the CP, though party planner access itself could be a perk for supporting)
-- [ ] Monetization: party planners can paywall moderation features (external items, clothes memory, enforcement actions) via subscription at whatever price the party planner wants
+- [ ] Monetization: party planners can paywall moderation features (external items, clothes memory limit, enforcement actions) via subscription at whatever price the party planner wants
 - [ ] Update FAQ Pearl ecosystem entry once seller cash-out and additional Pearl-gated features are in
 
 ## Deployment
