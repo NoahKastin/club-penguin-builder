@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import geoip from 'fast-geoip';
-import { adjustMoveTarget } from '../shared/collision.js';
+import { adjustMoveTarget, lineRectIntersection, simulateSkid } from '../shared/collision.js';
 import db from './db.js';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, updateRoomItemPosition, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession, updateAttributionName } from './accounts.js';
@@ -33,6 +33,7 @@ import {
   stopDrag,
   getDragOverrides,
   clearDragLocks,
+  setItemPosition,
 } from './state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -578,22 +579,79 @@ io.on('connection', (socket) => {
     const penguin = getPenguin(socket.id);
     if (!penguin) return;
 
-    // Apply collision with blocking items
     const cp = getClubPenguin(penguin.cpId);
     if (cp) {
       const room = cp.rooms[penguin.roomId];
       if (room && room.items) {
         const dragOverrides = getDragOverrides(penguin.cpId, penguin.roomId);
-        const blockers = room.items
-          .filter(i => i.blocksMovement)
-          .map((i, idx) => {
-            const ov = dragOverrides && dragOverrides[idx];
-            return { x: (ov && ov.x != null) ? ov.x : i.x, y: (ov && ov.y != null) ? ov.y : i.y, w: i.width, h: i.height };
-          });
+
+        // Resolve current item positions (accounting for drag overrides)
+        const resolvedItems = room.items.map((i, idx) => {
+          const ov = dragOverrides && dragOverrides[idx];
+          return {
+            x: (ov && ov.x != null) ? ov.x : i.x,
+            y: (ov && ov.y != null) ? ov.y : i.y,
+            w: i.width, h: i.height,
+            blocksMovement: i.blocksMovement,
+            skid: i.skid,
+            behavior: i.behavior,
+            idx,
+          };
+        });
+
+        // Save original target for skid detection (before blocker adjustment)
+        const origX = x;
+        const origY = y;
+
+        // Apply collision with blocking items (excluding skid-only items — they move out of the way)
+        const blockers = resolvedItems.filter(i => i.blocksMovement);
         if (blockers.length > 0) {
           const adjusted = adjustMoveTarget(penguin.x, penguin.y, x, y, blockers);
           x = adjusted.x;
           y = adjusted.y;
+        }
+
+        // Check for skid item pushes using the ORIGINAL path (pre-blocker adjustment)
+        const origDistance = Math.sqrt((origX - penguin.x) ** 2 + (origY - penguin.y) ** 2);
+        if (origDistance > 1) {
+          const dirX = (origX - penguin.x) / origDistance;
+          const dirY = (origY - penguin.y) / origDistance;
+
+          for (const item of resolvedItems) {
+            if (!item.skid) continue;
+            // Check if penguin's original path crosses this item
+            const hit = lineRectIntersection(penguin.x, penguin.y, origX, origY, item);
+            if (!hit) continue;
+
+            // Calculate push velocity from original movement distance
+            const speed = Math.min(origDistance * 0.6, 400);
+            const vx = dirX * speed / 60; // per-frame velocity
+            const vy = dirY * speed / 60;
+
+            // Get blockers for the skid sim (exclude this item itself)
+            const skidBlockers = resolvedItems
+              .filter(i => i.blocksMovement && i.idx !== item.idx)
+              .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
+
+            const frames = simulateSkid(item.x, item.y, item.w, item.h, vx, vy, skidBlockers);
+            const finalPos = frames[frames.length - 1];
+
+            // Store final position
+            setItemPosition(penguin.cpId, penguin.roomId, item.idx, finalPos.x, finalPos.y);
+            if (room.items[item.idx].behavior === 'draggable-persist') {
+              updateRoomItemPosition(penguin.cpId, penguin.roomId, item.idx, finalPos.x, finalPos.y);
+            }
+
+            // Broadcast push to all clients (include hit.t so clients can delay animation)
+            broadcastToCPRoom(penguin.cpId, penguin.roomId, 'itemPushed', {
+              itemIndex: item.idx,
+              startX: item.x,
+              startY: item.y,
+              vx, vy,
+              hitT: hit.t,
+              penguinDistance: origDistance,
+            });
+          }
         }
       }
     }

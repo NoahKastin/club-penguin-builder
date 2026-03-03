@@ -346,7 +346,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
       ...updated[roomIndex],
       items: [...updated[roomIndex].items, {
         catalogId: defaultCatalogId, x: 100, y: 100, width: 100, height: 100, rotation: 0,
-        behavior: null, blocksMovement: false, wearOffsetX: 0, wearOffsetY: 0, wearWidth: 40, wearHeight: 40,
+        behavior: null, blocksMovement: false, skid: false, wearOffsetX: 0, wearOffsetY: 0, wearWidth: 40, wearHeight: 40,
       }],
     };
     setRooms(updated);
@@ -431,7 +431,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
           height: e.height,
         })),
         items: (room.items || []).map(item => {
-          const base = { catalogId: item.catalogId, x: item.x, y: item.y, width: item.width, height: item.height, rotation: item.rotation || 0, behavior: item.behavior, blocksMovement: !!item.blocksMovement };
+          const base = { catalogId: item.catalogId, x: item.x, y: item.y, width: item.width, height: item.height, rotation: item.rotation || 0, behavior: item.behavior, blocksMovement: !!item.blocksMovement, skid: !!item.skid };
           if (item.behavior === 'collectible') {
             base.wearOffsetX = item.wearOffsetX || 0;
             base.wearOffsetY = item.wearOffsetY || 0;
@@ -596,6 +596,10 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                 <label style={{ ...styles.label, marginLeft: '12px' }}>
                   <input type="checkbox" checked={!!item.blocksMovement} onChange={(e) => updateItem(ri, ii, 'blocksMovement', e.target.checked)} />
                   {' '}Blocks movement
+                </label>
+                <label style={{ ...styles.label, marginLeft: '12px' }}>
+                  <input type="checkbox" checked={!!item.skid} onChange={(e) => updateItem(ri, ii, 'skid', e.target.checked)} />
+                  {' '}Skid
                 </label>
               </div>
               <div style={styles.row}>

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import Penguin from './Penguin';
 import * as socket from '../network/socket';
-import { adjustMoveTarget } from '../../shared/collision.js';
+import { adjustMoveTarget, simulateSkid } from '../../shared/collision.js';
 
 let textureCounter = 0;
 
@@ -21,6 +21,7 @@ export default class RoomScene extends Phaser.Scene {
     this.activeDrag = null; // { itemIndex, offsetX, offsetY }
     this.lastDragEmit = 0;
     this.pendingDragOverrides = null;
+    this.skidAnimations = new Set(); // item indices currently sliding
   }
 
   create() {
@@ -64,6 +65,14 @@ export default class RoomScene extends Phaser.Scene {
           pointer.x >= item.x && pointer.x <= item.x + item.w &&
           pointer.y >= item.y && pointer.y <= item.y + item.h
         ) {
+          // If item is also skid, emit a move toward it so server triggers push
+          if (item.skid && this.localId && this.penguins.has(this.localId)) {
+            const penguin = this.penguins.get(this.localId);
+            const targetX = item.x + item.w / 2;
+            const targetY = item.y + item.h / 2;
+            penguin.moveTo(targetX, targetY);
+            socket.move(targetX, targetY);
+          }
           this.activeDrag = {
             itemIndex: i,
             offsetX: pointer.x - (item.x + item.w / 2),
@@ -81,6 +90,14 @@ export default class RoomScene extends Phaser.Scene {
           pointer.x >= item.x && pointer.x <= item.x + item.w &&
           pointer.y >= item.y && pointer.y <= item.y + item.h
         ) {
+          // If item is also skid, emit a move toward it so server triggers push
+          if (item.skid && this.localId && this.penguins.has(this.localId)) {
+            const penguin = this.penguins.get(this.localId);
+            const targetX = item.x + item.w / 2;
+            const targetY = item.y + item.h / 2;
+            penguin.moveTo(targetX, targetY);
+            socket.move(targetX, targetY);
+          }
           this.showPickupDialog(item);
           return;
         }
@@ -102,7 +119,8 @@ export default class RoomScene extends Phaser.Scene {
         const penguin = this.penguins.get(this.localId);
         const adjusted = adjustMoveTarget(penguin.sprite.x, penguin.sprite.y, pointer.x, pointer.y, this.getBlockers());
         penguin.moveTo(adjusted.x, adjusted.y);
-        socket.move(adjusted.x, adjusted.y);
+        // Send raw target so server can detect skid pushes along original path
+        socket.move(pointer.x, pointer.y);
       }
     });
 
@@ -212,6 +230,48 @@ export default class RoomScene extends Phaser.Scene {
       }
     };
 
+    this.onItemPushed = (data) => {
+      const zone = this.itemZones[data.itemIndex];
+      if (!zone || !zone.img) return;
+      if (this.skidAnimations.has(data.itemIndex)) return;
+
+      const startAnim = () => {
+        if (!zone.img) return;
+        const blockers = this.getBlockers(data.itemIndex);
+        const frames = simulateSkid(data.startX, data.startY, zone.w, zone.h, data.vx, data.vy, blockers);
+        if (frames.length < 2) return;
+
+        this.skidAnimations.add(data.itemIndex);
+        let frameIdx = 0;
+        const step = () => {
+          if (!this.scene || !this.scene.isActive() || !zone.img) {
+            this.skidAnimations.delete(data.itemIndex);
+            return;
+          }
+          frameIdx++;
+          if (frameIdx >= frames.length) {
+            this.skidAnimations.delete(data.itemIndex);
+            return;
+          }
+          const f = frames[frameIdx];
+          zone.x = f.x;
+          zone.y = f.y;
+          zone.img.setPosition(f.x + zone.w / 2, f.y + zone.h / 2);
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      };
+
+      // Delay animation until penguin reaches the item (hitT = fraction along path)
+      const penguinTweenDuration = Math.max(200, (data.penguinDistance || 0) * 3);
+      const delay = (data.hitT || 0) * penguinTweenDuration;
+      if (delay > 16) {
+        setTimeout(startAnim, delay);
+      } else {
+        startAnim();
+      }
+    };
+
     socket.on('roomState', this.onRoomState);
     socket.on('penguinJoined', this.onPenguinJoined);
     socket.on('penguinLeft', this.onPenguinLeft);
@@ -221,6 +281,7 @@ export default class RoomScene extends Phaser.Scene {
     socket.on('itemDragStart', this.onItemDragStart);
     socket.on('itemDragMoved', this.onItemDragMoved);
     socket.on('itemDragEnd', this.onItemDragEnd);
+    socket.on('itemPushed', this.onItemPushed);
 
     this.events.on('destroy', this.cleanup, this);
     socket.sceneReady();
@@ -236,6 +297,7 @@ export default class RoomScene extends Phaser.Scene {
     socket.off('itemDragStart', this.onItemDragStart);
     socket.off('itemDragMoved', this.onItemDragMoved);
     socket.off('itemDragEnd', this.onItemDragEnd);
+    socket.off('itemPushed', this.onItemPushed);
   }
 
   showPickupDialog(item) {
@@ -334,7 +396,8 @@ export default class RoomScene extends Phaser.Scene {
     }
 
     penguin.moveTo(adjusted.x, adjusted.y);
-    socket.move(adjusted.x, adjusted.y);
+    // Send raw target so server can detect skid pushes along original path
+    socket.move(targetX, targetY);
 
     if (reachedExit) {
       const distance = Phaser.Math.Distance.Between(penguin.sprite.x, penguin.sprite.y, adjusted.x, adjusted.y);
@@ -427,6 +490,7 @@ export default class RoomScene extends Phaser.Scene {
       wearWidth: item.wearWidth || 40,
       wearHeight: item.wearHeight || 40,
       blocksMovement: !!item.blocksMovement,
+      skid: !!item.skid,
       img: null,
       lockedBy: (dragOverride && dragOverride.draggedBy) || null,
     };
@@ -462,9 +526,9 @@ export default class RoomScene extends Phaser.Scene {
     this.itemZones.push(zone);
   }
 
-  getBlockers() {
+  getBlockers(excludeIndex) {
     return this.itemZones
-      .filter(z => z.blocksMovement)
+      .filter((z, i) => z.blocksMovement && i !== excludeIndex)
       .map(z => ({ x: z.x, y: z.y, w: z.w, h: z.h }));
   }
 
@@ -478,5 +542,6 @@ export default class RoomScene extends Phaser.Scene {
     socket.off('itemDragStart', this.onItemDragStart);
     socket.off('itemDragMoved', this.onItemDragMoved);
     socket.off('itemDragEnd', this.onItemDragEnd);
+    socket.off('itemPushed', this.onItemPushed);
   }
 }

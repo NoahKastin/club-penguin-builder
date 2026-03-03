@@ -118,6 +118,19 @@ export function startDrag(cpId, roomId, itemIndex, socketId) {
   return true;
 }
 
+export function setItemPosition(cpId, roomId, itemIndex, x, y) {
+  const key = dragKey(cpId, roomId);
+  if (!dragState.has(key)) dragState.set(key, new Map());
+  const room = dragState.get(key);
+  const existing = room.get(itemIndex);
+  if (existing) {
+    existing.x = x;
+    existing.y = y;
+  } else {
+    room.set(itemIndex, { x, y, draggedBy: null });
+  }
+}
+
 export function moveDragItem(cpId, roomId, itemIndex, x, y) {
   const key = dragKey(cpId, roomId);
   const room = dragState.get(key);

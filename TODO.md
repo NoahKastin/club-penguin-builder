@@ -44,13 +44,15 @@
 - [x] Items can be free or paywalled (Pearl currency, Stripe checkout)
 - [x] Free items must still be acquired by an account before being usable in Build
 - [x] Uploaders can always use their own items
-- [ ] Bundle items into "games" (specific location configurations of items, e.g. beans placed into a Mancala board)
+- [ ] Bundle items into "games" (specific location configurations of items-with-behaviors, e.g. beans placed into a Mancala board; only personal uploads for simplicity of proceed-sharing)
+  - [ ] Testing environment: playable preview before posting to Catalog (also useful for room design)
+  - [ ] Game updates (like CP parties) — especially important if games are listed for Pearls
 
 ## Item Behaviors (per room)
 - [x] Collectible by penguins (clothes: render on penguins — pins, colors/sprites, costumes, hats, etc.)
 - [x] Draggable by penguins (resets and persists variants, one-at-a-time locking, black glow)
 - [x] Resizable items within rooms (width/height fields in room editor)
-- [ ] Physics: skid/bounce
+- [x] Physics: skid/bounce (penguin-pushed items slide with friction, bounce off walls and blockers)
 - [ ] Gravity toward a location (item-level; will also require item-item collision)
 - [x] Block penguin movement (slide along edge; composable with other behaviors via checkbox)
 - [x] Clothes equip without regard for item slots (later-equipped goes on top); puffles are a subset of clothes

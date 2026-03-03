@@ -135,3 +135,54 @@ export function adjustMoveTarget(fromX, fromY, toX, toY, blockers, depth = 0) {
 
   return adjustMoveTarget(stopX, stopY, slideX, slideY, blockers, depth + 1);
 }
+
+// Skid/bounce physics simulation.
+// Returns array of {x, y} keyframes (item center positions).
+const FRICTION = 0.96;
+const BOUNCE = 0.3;
+const STOP_THRESHOLD = 0.5;
+const MAX_STEPS = 300;
+
+export function simulateSkid(startX, startY, itemW, itemH, vx, vy, blockers, roomW = 800, roomH = 600) {
+  let x = startX;
+  let y = startY;
+  const frames = [{ x, y }];
+
+  for (let i = 0; i < MAX_STEPS; i++) {
+    x += vx;
+    y += vy;
+
+    // Wall bounce (item edges)
+    if (x < 0) { x = 0; vx = -vx * BOUNCE; }
+    if (x + itemW > roomW) { x = roomW - itemW; vx = -vx * BOUNCE; }
+    if (y < 0) { y = 0; vy = -vy * BOUNCE; }
+    if (y + itemH > roomH) { y = roomH - itemH; vy = -vy * BOUNCE; }
+
+    // Blocker bounce
+    for (const b of blockers) {
+      // Check overlap between item rect and blocker rect
+      if (x < b.x + b.w && x + itemW > b.x && y < b.y + b.h && y + itemH > b.y) {
+        // Find which axis has least overlap to resolve
+        const overlapLeft = (x + itemW) - b.x;
+        const overlapRight = (b.x + b.w) - x;
+        const overlapTop = (y + itemH) - b.y;
+        const overlapBottom = (b.y + b.h) - y;
+        const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+        if (minOverlap === overlapLeft) { x = b.x - itemW; vx = -vx * BOUNCE; }
+        else if (minOverlap === overlapRight) { x = b.x + b.w; vx = -vx * BOUNCE; }
+        else if (minOverlap === overlapTop) { y = b.y - itemH; vy = -vy * BOUNCE; }
+        else { y = b.y + b.h; vy = -vy * BOUNCE; }
+      }
+    }
+
+    vx *= FRICTION;
+    vy *= FRICTION;
+
+    frames.push({ x, y });
+
+    if (Math.abs(vx) < STOP_THRESHOLD && Math.abs(vy) < STOP_THRESHOLD) break;
+  }
+
+  return frames;
+}
