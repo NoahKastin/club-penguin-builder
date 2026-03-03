@@ -117,6 +117,7 @@ export default function Inventory({ authToken }) {
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
   const [favorites, setFavorites] = useState(new Set());
+  const [hideEmoji, setHideEmoji] = useState(false);
 
   useEffect(() => {
     function onRoomState(data) {
@@ -133,9 +134,14 @@ export default function Inventory({ authToken }) {
       setClothes(data.clothes || []);
     }
 
+    function onHideEmojiUpdated(data) {
+      setHideEmoji(data.hideEmoji);
+    }
+
     socket.on('roomState', onRoomState);
     socket.on('itemCollected', onItemCollected);
     socket.on('inventoryUpdated', onInventoryUpdated);
+    socket.on('hideEmojiUpdated', onHideEmojiUpdated);
 
     if (authToken) {
       fetch('/api/auth/preferences', { headers: { Authorization: `Bearer ${authToken}` } })
@@ -144,6 +150,7 @@ export default function Inventory({ authToken }) {
           if (prefs) {
             setSortField(prefs.inv_sort_field || 'name');
             setSortDir(prefs.inv_sort_dir || 'asc');
+            setHideEmoji(!!prefs.hide_emoji);
           }
         });
       fetch('/api/auth/favorites', { headers: { Authorization: `Bearer ${authToken}` } })
@@ -155,6 +162,7 @@ export default function Inventory({ authToken }) {
       socket.off('roomState', onRoomState);
       socket.off('itemCollected', onItemCollected);
       socket.off('inventoryUpdated', onInventoryUpdated);
+      socket.off('hideEmojiUpdated', onHideEmojiUpdated);
     };
   }, []);
 
@@ -168,6 +176,12 @@ export default function Inventory({ authToken }) {
         body: JSON.stringify({ inv_sort_field: field, inv_sort_dir: dir }),
       });
     }
+  }
+
+  function toggleHideEmoji() {
+    const next = !hideEmoji;
+    setHideEmoji(next);
+    socket.setHideEmoji(next);
   }
 
   function toggleFavorite(catalogId) {
@@ -264,6 +278,17 @@ export default function Inventory({ authToken }) {
               title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
             >
               {sortDir === 'asc' ? '\u25B2' : '\u25BC'}
+            </button>
+            <button
+              onClick={toggleHideEmoji}
+              style={{
+                ...styles.sortButton,
+                background: hideEmoji ? '#3a5a3e' : '#1a1a2e',
+                border: hideEmoji ? '1px solid #4a90d9' : '1px solid #555',
+              }}
+              title={hideEmoji ? 'Show penguin emoji' : 'Hide penguin emoji'}
+            >
+              {hideEmoji ? '\u{1F427}\u{274C}' : '\u{1F427}'}
             </button>
           </div>
           <div style={styles.grid}>

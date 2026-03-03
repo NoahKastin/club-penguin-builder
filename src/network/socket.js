@@ -19,6 +19,7 @@ const listeners = {
   itemCollected: [],
   inventoryUpdated: [],
   penguinClothesChanged: [],
+  hideEmojiUpdated: [],
   clubPenguinCreated: [],
   clubPenguinUpdated: [],
 };
@@ -66,6 +67,10 @@ export function equipItem(inventoryIndex) {
 
 export function unequipItem(clothesIndex) {
   socket.emit('unequipItem', clothesIndex);
+}
+
+export function setHideEmoji(hide) {
+  socket.emit('setHideEmoji', hide);
 }
 
 let storedToken = null;

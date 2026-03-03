@@ -108,6 +108,11 @@ if (!prefCols.includes('catalog_sort_field')) {
   db.exec("ALTER TABLE account_preferences ADD COLUMN inv_sort_dir TEXT NOT NULL DEFAULT 'asc'");
 }
 
+// Migration: add hide_emoji to account_preferences
+if (!prefCols.includes('hide_emoji')) {
+  db.exec("ALTER TABLE account_preferences ADD COLUMN hide_emoji INTEGER NOT NULL DEFAULT 0");
+}
+
 // Favorites table
 db.exec(`
   CREATE TABLE IF NOT EXISTS account_favorites (

@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 let clothesTextureCounter = 0;
 
 export default class Penguin {
-  constructor(scene, id, name, x, y, isLocal, clothes = []) {
+  constructor(scene, id, name, x, y, isLocal, clothes = [], hideEmoji = false) {
     this.scene = scene;
     this.id = id;
     this.isLocal = isLocal;
@@ -45,9 +45,15 @@ export default class Penguin {
     this.bubbleTimer = null;
     this.clothesSprites = [];
 
+    if (hideEmoji) this.sprite.setVisible(false);
+
     if (clothes.length > 0) {
       this.updateClothes(clothes);
     }
+  }
+
+  setHideEmoji(hide) {
+    this.sprite.setVisible(!hide);
   }
 
   updateClothes(clothes) {

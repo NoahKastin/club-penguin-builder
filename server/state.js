@@ -11,6 +11,7 @@ export function addPenguin(socketId, name, cpId, spawnRoom, accountId = null) {
     y: 350,
     inventory: [], // all collected items
     clothes: [],   // currently worn items (subset of inventory)
+    hideEmoji: false,
   };
   penguins.set(socketId, penguin);
   return penguin;

@@ -130,15 +130,15 @@ app.get('/api/auth/preferences', (req, res) => {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   const accountId = getSession(token);
   if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
-  const row = db.prepare('SELECT sort_field, sort_dir, catalog_sort_field, catalog_sort_dir, inv_sort_field, inv_sort_dir FROM account_preferences WHERE account_id = ?').get(accountId);
-  res.json(row || { sort_field: 'name', sort_dir: 'asc', catalog_sort_field: 'name', catalog_sort_dir: 'asc', inv_sort_field: 'name', inv_sort_dir: 'asc' });
+  const row = db.prepare('SELECT sort_field, sort_dir, catalog_sort_field, catalog_sort_dir, inv_sort_field, inv_sort_dir, hide_emoji FROM account_preferences WHERE account_id = ?').get(accountId);
+  res.json(row || { sort_field: 'name', sort_dir: 'asc', catalog_sort_field: 'name', catalog_sort_dir: 'asc', inv_sort_field: 'name', inv_sort_dir: 'asc', hide_emoji: 0 });
 });
 
 app.put('/api/auth/preferences', (req, res) => {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   const accountId = getSession(token);
   if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
-  const { sort_field, sort_dir, catalog_sort_field, catalog_sort_dir, inv_sort_field, inv_sort_dir } = req.body;
+  const { sort_field, sort_dir, catalog_sort_field, catalog_sort_dir, inv_sort_field, inv_sort_dir, hide_emoji } = req.body;
   const validCpFields = ['name', 'createdAt', 'latestParty', 'penguinCount', 'roomCount'];
   const validItemFields = ['name', 'createdAt', 'attribution'];
   const validDirs = ['asc', 'desc'];
@@ -163,13 +163,14 @@ app.put('/api/auth/preferences', (req, res) => {
     catalog_sort_dir: catalog_sort_dir || (existing?.catalog_sort_dir ?? 'asc'),
     inv_sort_field: inv_sort_field || (existing?.inv_sort_field ?? 'name'),
     inv_sort_dir: inv_sort_dir || (existing?.inv_sort_dir ?? 'asc'),
+    hide_emoji: hide_emoji !== undefined ? (hide_emoji ? 1 : 0) : (existing?.hide_emoji ?? 0),
   };
   db.prepare(
-    `INSERT INTO account_preferences (account_id, sort_field, sort_dir, catalog_sort_field, catalog_sort_dir, inv_sort_field, inv_sort_dir)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(account_id) DO UPDATE SET sort_field = ?, sort_dir = ?, catalog_sort_field = ?, catalog_sort_dir = ?, inv_sort_field = ?, inv_sort_dir = ?`
-  ).run(accountId, merged.sort_field, merged.sort_dir, merged.catalog_sort_field, merged.catalog_sort_dir, merged.inv_sort_field, merged.inv_sort_dir,
-        merged.sort_field, merged.sort_dir, merged.catalog_sort_field, merged.catalog_sort_dir, merged.inv_sort_field, merged.inv_sort_dir);
+    `INSERT INTO account_preferences (account_id, sort_field, sort_dir, catalog_sort_field, catalog_sort_dir, inv_sort_field, inv_sort_dir, hide_emoji)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(account_id) DO UPDATE SET sort_field = ?, sort_dir = ?, catalog_sort_field = ?, catalog_sort_dir = ?, inv_sort_field = ?, inv_sort_dir = ?, hide_emoji = ?`
+  ).run(accountId, merged.sort_field, merged.sort_dir, merged.catalog_sort_field, merged.catalog_sort_dir, merged.inv_sort_field, merged.inv_sort_dir, merged.hide_emoji,
+        merged.sort_field, merged.sort_dir, merged.catalog_sort_field, merged.catalog_sort_dir, merged.inv_sort_field, merged.inv_sort_dir, merged.hide_emoji);
   res.json(merged);
 });
 
@@ -536,7 +537,7 @@ io.on('connection', (socket) => {
       : cp.spawnRoom;
     const penguin = addPenguin(socket.id, name, cpId, spawnRoom, accountId);
 
-    // Restore saved inventory for logged-in users
+    // Restore saved inventory and preferences for logged-in users
     if (accountId) {
       const saved = loadInventory(accountId);
       for (const item of saved) {
@@ -545,6 +546,8 @@ io.on('connection', (socket) => {
           penguin.clothes.push(item);
         }
       }
+      const prefs = db.prepare('SELECT hide_emoji FROM account_preferences WHERE account_id = ?').get(accountId);
+      if (prefs?.hide_emoji) penguin.hideEmoji = true;
     }
 
     const room = cp.rooms[penguin.roomId];
@@ -665,6 +668,7 @@ io.on('connection', (socket) => {
     broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinClothesChanged', {
       id: penguin.id,
       clothes: penguin.clothes,
+      hideEmoji: penguin.hideEmoji,
     });
   });
 
@@ -686,7 +690,31 @@ io.on('connection', (socket) => {
     broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinClothesChanged', {
       id: penguin.id,
       clothes: penguin.clothes,
+      hideEmoji: penguin.hideEmoji,
     });
+  });
+
+  socket.on('setHideEmoji', (hide) => {
+    const penguin = getPenguin(socket.id);
+    if (!penguin) return;
+
+    penguin.hideEmoji = !!hide;
+
+    // Persist for logged-in users
+    if (penguin.accountId) {
+      db.prepare(
+        `INSERT INTO account_preferences (account_id, hide_emoji) VALUES (?, ?)
+         ON CONFLICT(account_id) DO UPDATE SET hide_emoji = ?`
+      ).run(penguin.accountId, hide ? 1 : 0, hide ? 1 : 0);
+    }
+
+    // Broadcast to room (reuse clothes changed event since it's visual)
+    broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinClothesChanged', {
+      id: penguin.id,
+      clothes: penguin.clothes,
+      hideEmoji: penguin.hideEmoji,
+    });
+    socket.emit('hideEmojiUpdated', { hideEmoji: penguin.hideEmoji });
   });
 
   function validateItemAccess(rooms, accountId) {

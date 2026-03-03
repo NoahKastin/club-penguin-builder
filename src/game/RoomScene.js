@@ -95,7 +95,7 @@ export default class RoomScene extends Phaser.Scene {
       if (!this.penguins.has(data.id)) {
         this.penguins.set(
           data.id,
-          new Penguin(this, data.id, data.name, data.x, data.y, data.id === this.localId, data.clothes || [])
+          new Penguin(this, data.id, data.name, data.x, data.y, data.id === this.localId, data.clothes || [], data.hideEmoji || false)
         );
       }
     };
@@ -126,6 +126,7 @@ export default class RoomScene extends Phaser.Scene {
       const penguin = this.penguins.get(data.id);
       if (penguin) {
         penguin.updateClothes(data.clothes);
+        if (data.hideEmoji !== undefined) penguin.setHideEmoji(data.hideEmoji);
       }
     };
 
@@ -299,7 +300,7 @@ export default class RoomScene extends Phaser.Scene {
     for (const p of penguinList) {
       this.penguins.set(
         p.id,
-        new Penguin(this, p.id, p.name, p.x, p.y, p.id === this.localId, p.clothes || [])
+        new Penguin(this, p.id, p.name, p.x, p.y, p.id === this.localId, p.clothes || [], p.hideEmoji || false)
       );
     }
   }
