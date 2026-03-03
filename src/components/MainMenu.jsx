@@ -189,7 +189,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
 
   return (
     <div style={styles.container}>
-      <img src="/logo.svg" alt="Club Penguin Builder" style={{ ...styles.logo, filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.6))' }} />
+      <img src="/logo.svg" alt="Club Penguin Builder" style={{ ...styles.logo, filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.6))', transform: 'translateZ(0)' }} />
 
       <div style={styles.welcome}>
         Welcome, {penguinName}!
