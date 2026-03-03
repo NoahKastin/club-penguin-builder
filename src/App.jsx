@@ -9,6 +9,7 @@ export default function App() {
   const [penguinName, setPenguinName] = useState(null);
   const [authToken, setAuthToken] = useState(null);
   const [accountId, setAccountId] = useState(null);
+  const [attributionName, setAttributionName] = useState('');
   const [selectedCP, setSelectedCP] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,16 +23,18 @@ export default function App() {
         setPenguinName(data.account.username);
         setAuthToken(token);
         setAccountId(data.account.id);
+        setAttributionName(data.account.attribution_name || '');
         setSocketAuthToken(token);
       })
       .catch(() => localStorage.removeItem('token'))
       .finally(() => setLoading(false));
   }, []);
 
-  function handleJoin(name, token, acctId) {
+  function handleJoin(name, token, acctId, attrName) {
     setPenguinName(name);
     setAuthToken(token || null);
     setAccountId(acctId || null);
+    setAttributionName(attrName || '');
     setSocketAuthToken(token || null);
   }
 
@@ -44,6 +47,7 @@ export default function App() {
     setPenguinName(null);
     setAuthToken(null);
     setAccountId(null);
+    setAttributionName('');
     setSocketAuthToken(null);
     setSelectedCP(null);
   }
@@ -60,6 +64,8 @@ export default function App() {
         penguinName={penguinName}
         authToken={authToken}
         accountId={accountId}
+        attributionName={attributionName}
+        onAttributionNameChange={setAttributionName}
         onSelectCP={setSelectedCP}
         onLogout={handleLogout}
       />

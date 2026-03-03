@@ -106,7 +106,7 @@ export default function NameEntry({ onJoin }) {
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       localStorage.setItem('token', data.token);
-      onJoin(data.account.username, data.token, data.account.id);
+      onJoin(data.account.username, data.token, data.account.id, data.account.attribution_name);
     } catch { setError('Connection failed'); }
     finally { setLoading(false); }
   }
@@ -125,7 +125,7 @@ export default function NameEntry({ onJoin }) {
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       localStorage.setItem('token', data.token);
-      onJoin(data.account.username, data.token, data.account.id);
+      onJoin(data.account.username, data.token, data.account.id, data.account.attribution_name);
     } catch { setError('Connection failed'); }
     finally { setLoading(false); }
   }

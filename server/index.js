@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 import geoip from 'fast-geoip';
 import db from './db.js';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
-import { createAccount, login, getAccount, createSession, getSession, deleteSession } from './accounts.js';
+import { createAccount, login, getAccount, createSession, getSession, deleteSession, updateAttributionName } from './accounts.js';
 import { launchParty, getPartyLog } from './parties.js';
 import { createCatalogItem, getCatalogItem, listCatalogItems, catalogItemExistsByName } from './catalog.js';
 import { loadInventory, saveInventoryItem, setEquipped } from './inventory.js';
@@ -110,6 +110,19 @@ app.get('/api/auth/me', (req, res) => {
   const account = getAccount(accountId);
   if (!account) return res.status(401).json({ error: 'Not authenticated' });
   res.json({ account });
+});
+
+// Update attribution name
+app.put('/api/auth/attribution-name', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = getSession(token);
+  if (!accountId) return res.status(401).json({ error: 'Not authenticated' });
+  const { attributionName } = req.body;
+  if (typeof attributionName !== 'string' || attributionName.length > 60) {
+    return res.status(400).json({ error: 'Attribution name must be 60 characters or fewer' });
+  }
+  updateAttributionName(accountId, attributionName.trim());
+  res.json({ ok: true });
 });
 
 // Sort preferences
@@ -410,11 +423,11 @@ app.post('/api/catalog', async (req, res) => {
   uploads.push(now);
   uploadRateLimits.set(accountId, uploads);
 
-  // Default attribution to uploader's username if not provided
+  // Default attribution to account's attribution_name, then username
   let attr = (attribution || '').trim();
   if (!attr) {
     const account = getAccount(accountId);
-    if (account) attr = account.username;
+    if (account) attr = account.attribution_name || account.username;
   }
 
   const item = createCatalogItem(name.trim(), image, accountId, attr, itemPrice);

@@ -30,12 +30,16 @@ export async function login(username, password) {
   if (!row) return null;
   const match = await bcrypt.compare(password, row.password_hash);
   if (!match) return null;
-  return { id: row.id, username: row.username };
+  return { id: row.id, username: row.username, attribution_name: row.attribution_name || '' };
 }
 
 export function getAccount(id) {
-  const row = db.prepare('SELECT id, username FROM accounts WHERE id = ?').get(id);
+  const row = db.prepare('SELECT id, username, attribution_name FROM accounts WHERE id = ?').get(id);
   return row || null;
+}
+
+export function updateAttributionName(id, attributionName) {
+  db.prepare('UPDATE accounts SET attribution_name = ? WHERE id = ?').run(attributionName, id);
 }
 
 export function createSession(accountId) {

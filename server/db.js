@@ -183,4 +183,10 @@ db.exec(`
   )
 `);
 
+// Migration: add attribution_name to accounts
+const acctCols3 = db.prepare("PRAGMA table_info(accounts)").all().map(c => c.name);
+if (!acctCols3.includes('attribution_name')) {
+  db.exec("ALTER TABLE accounts ADD COLUMN attribution_name TEXT NOT NULL DEFAULT ''");
+}
+
 export default db;

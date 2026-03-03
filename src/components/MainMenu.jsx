@@ -84,7 +84,7 @@ const styles = {
   },
 };
 
-export default function MainMenu({ penguinName, authToken, accountId, onSelectCP, onLogout }) {
+export default function MainMenu({ penguinName, authToken, accountId, attributionName, onAttributionNameChange, onSelectCP, onLogout }) {
   const [clubPenguins, setClubPenguins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -97,6 +97,8 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
   const [pearlBalance, setPearlBalance] = useState(null);
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
+  const [editingAttribution, setEditingAttribution] = useState(false);
+  const [attrDraft, setAttrDraft] = useState('');
 
   useEffect(() => {
     // Auto-open Pearl Fishery on Stripe redirect
@@ -172,7 +174,7 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
   }
 
   if (showCatalog) {
-    return <Catalog authToken={authToken} accountId={accountId} penguinName={penguinName} onBack={() => setShowCatalog(false)} onPearlShop={() => { setShowCatalog(false); setShowPearlShop(true); }} />;
+    return <Catalog authToken={authToken} accountId={accountId} penguinName={penguinName} attributionName={attributionName} onBack={() => setShowCatalog(false)} onPearlShop={() => { setShowCatalog(false); setShowPearlShop(true); }} />;
   }
 
   if (showCreate || editingCpId) {
@@ -207,6 +209,62 @@ export default function MainMenu({ penguinName, authToken, accountId, onSelectCP
           : <button style={{ marginLeft: '8px', padding: '4px 12px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }} onClick={onLogout}>Sign Up / Log In</button>
         }
       </div>
+
+      {authToken && (
+        <div style={{ fontSize: '0.85rem', color: '#888', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {editingAttribution ? (
+            <>
+              <span>Attribution name:</span>
+              <input
+                style={{ padding: '3px 8px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #555', background: '#1a1a2e', color: '#eee', outline: 'none', width: '160px' }}
+                type="text"
+                value={attrDraft}
+                onChange={(e) => setAttrDraft(e.target.value)}
+                maxLength={60}
+                placeholder={penguinName}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    fetch('/api/auth/attribution-name', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+                      body: JSON.stringify({ attributionName: attrDraft.trim() }),
+                    });
+                    onAttributionNameChange(attrDraft.trim());
+                    setEditingAttribution(false);
+                  } else if (e.key === 'Escape') {
+                    setEditingAttribution(false);
+                  }
+                }}
+              />
+              <button
+                style={{ padding: '3px 8px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #555', background: '#4a90d9', color: '#fff', cursor: 'pointer' }}
+                onClick={() => {
+                  fetch('/api/auth/attribution-name', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+                    body: JSON.stringify({ attributionName: attrDraft.trim() }),
+                  });
+                  onAttributionNameChange(attrDraft.trim());
+                  setEditingAttribution(false);
+                }}
+              >Save</button>
+              <button
+                style={{ padding: '3px 8px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }}
+                onClick={() => setEditingAttribution(false)}
+              >Cancel</button>
+            </>
+          ) : (
+            <>
+              <span>Uploads credited to: <strong style={{ color: '#ccc' }}>{attributionName || penguinName}</strong></span>
+              <button
+                style={{ padding: '2px 8px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }}
+                onClick={() => { setAttrDraft(attributionName || ''); setEditingAttribution(true); }}
+              >Edit</button>
+            </>
+          )}
+        </div>
+      )}
 
       <div style={styles.list}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

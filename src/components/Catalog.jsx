@@ -155,11 +155,11 @@ const styles = {
   },
 };
 
-export default function Catalog({ authToken, accountId, penguinName, onBack, onPearlShop }) {
+export default function Catalog({ authToken, accountId, penguinName, attributionName, onBack, onPearlShop }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
-  const [attribution, setAttribution] = useState(penguinName || '');
+  const [attribution, setAttribution] = useState(attributionName || penguinName || '');
   const [price, setPrice] = useState(0);
   const [imageData, setImageData] = useState(null);
   const [error, setError] = useState('');
@@ -282,7 +282,7 @@ export default function Catalog({ authToken, accountId, penguinName, onBack, onP
         if (item.error) { setError(item.error); return; }
         setItems([item, ...items]);
         setName('');
-        setAttribution(penguinName || '');
+        setAttribution(attributionName || penguinName || '');
         setPrice(0);
         setImageData(null);
         setSuccess('Item added!');
