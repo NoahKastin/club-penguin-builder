@@ -17,6 +17,9 @@ export default class RoomScene extends Phaser.Scene {
     this.pickupDialog = null; // { bg, text, yesText, noText, yesBg, noBg }
     this.pendingPickup = null;
     this.walkingToExit = false;
+    this.activeDrag = null; // { itemIndex, offsetX, offsetY }
+    this.lastDragEmit = 0;
+    this.pendingDragOverrides = null;
   }
 
   create() {
@@ -51,6 +54,25 @@ export default class RoomScene extends Phaser.Scene {
 
       if (this.walkingToExit) return;
 
+      // Check draggable items
+      for (let i = this.itemZones.length - 1; i >= 0; i--) {
+        const item = this.itemZones[i];
+        if (!item.behavior || !item.behavior.startsWith('draggable')) continue;
+        if (item.lockedBy && item.lockedBy !== this.localId) continue;
+        if (
+          pointer.x >= item.x && pointer.x <= item.x + item.w &&
+          pointer.y >= item.y && pointer.y <= item.y + item.h
+        ) {
+          this.activeDrag = {
+            itemIndex: i,
+            offsetX: pointer.x - (item.x + item.w / 2),
+            offsetY: pointer.y - (item.y + item.h / 2),
+          };
+          socket.dragStart(i);
+          return;
+        }
+      }
+
       // Check collectible items
       for (const item of this.itemZones) {
         if (item.behavior !== 'collectible') continue;
@@ -82,13 +104,47 @@ export default class RoomScene extends Phaser.Scene {
       }
     });
 
+    this.input.on('pointermove', (pointer) => {
+      if (!this.activeDrag) return;
+      const { itemIndex, offsetX, offsetY } = this.activeDrag;
+      const zone = this.itemZones[itemIndex];
+      if (!zone || !zone.img) return;
+
+      const cx = Math.max(zone.w / 2, Math.min(800 - zone.w / 2, pointer.x - offsetX));
+      const cy = Math.max(zone.h / 2, Math.min(600 - zone.h / 2, pointer.y - offsetY));
+
+      zone.img.setPosition(cx, cy);
+      zone.x = cx - zone.w / 2;
+      zone.y = cy - zone.h / 2;
+
+      const now = Date.now();
+      if (now - this.lastDragEmit >= 50) {
+        this.lastDragEmit = now;
+        socket.dragMove(itemIndex, zone.x, zone.y);
+      }
+    });
+
+    this.input.on('pointerup', () => {
+      if (!this.activeDrag) return;
+      const { itemIndex } = this.activeDrag;
+      const zone = this.itemZones[itemIndex];
+      if (zone) {
+        socket.dragMove(itemIndex, zone.x, zone.y);
+      }
+      socket.dragEnd(itemIndex);
+      this.activeDrag = null;
+    });
+
     this.onRoomState = (data) => {
       this.localId = data.you;
       this.walkingToExit = false;
+      this.activeDrag = null;
       if (data.catalogItems) {
         Object.assign(this.catalogCache, data.catalogItems);
       }
+      this.pendingDragOverrides = data.dragOverrides || null;
       this.loadRoom(data.room, data.penguins);
+      this.pendingDragOverrides = null;
     };
 
     this.onPenguinJoined = (data) => {
@@ -130,12 +186,39 @@ export default class RoomScene extends Phaser.Scene {
       }
     };
 
+    this.onItemDragStart = (data) => {
+      const zone = this.itemZones[data.itemIndex];
+      if (zone) zone.lockedBy = data.draggedBy;
+    };
+
+    this.onItemDragMoved = (data) => {
+      const zone = this.itemZones[data.itemIndex];
+      if (!zone || !zone.img) return;
+      zone.x = data.x;
+      zone.y = data.y;
+      zone.img.setPosition(data.x + zone.w / 2, data.y + zone.h / 2);
+    };
+
+    this.onItemDragEnd = (data) => {
+      const zone = this.itemZones[data.itemIndex];
+      if (!zone) return;
+      zone.lockedBy = null;
+      if (data.x != null && data.y != null && zone.img) {
+        zone.x = data.x;
+        zone.y = data.y;
+        zone.img.setPosition(data.x + zone.w / 2, data.y + zone.h / 2);
+      }
+    };
+
     socket.on('roomState', this.onRoomState);
     socket.on('penguinJoined', this.onPenguinJoined);
     socket.on('penguinLeft', this.onPenguinLeft);
     socket.on('penguinMoved', this.onPenguinMoved);
     socket.on('chatMessage', this.onChatMessage);
     socket.on('penguinClothesChanged', this.onPenguinClothesChanged);
+    socket.on('itemDragStart', this.onItemDragStart);
+    socket.on('itemDragMoved', this.onItemDragMoved);
+    socket.on('itemDragEnd', this.onItemDragEnd);
 
     this.events.on('destroy', this.cleanup, this);
     socket.sceneReady();
@@ -148,6 +231,9 @@ export default class RoomScene extends Phaser.Scene {
     socket.off('penguinMoved', this.onPenguinMoved);
     socket.off('chatMessage', this.onChatMessage);
     socket.off('penguinClothesChanged', this.onPenguinClothesChanged);
+    socket.off('itemDragStart', this.onItemDragStart);
+    socket.off('itemDragMoved', this.onItemDragMoved);
+    socket.off('itemDragEnd', this.onItemDragEnd);
   }
 
   showPickupDialog(item) {
@@ -251,6 +337,7 @@ export default class RoomScene extends Phaser.Scene {
 
   loadRoom(room, penguinList) {
     this.dismissPickupDialog();
+    this.activeDrag = null;
 
     for (const penguin of this.penguins.values()) {
       penguin.destroy();
@@ -272,8 +359,10 @@ export default class RoomScene extends Phaser.Scene {
     this.roomLabel.setVisible(false);
 
     if (room.items) {
-      for (const item of room.items) {
-        this.loadRoomItem(item);
+      for (let i = 0; i < room.items.length; i++) {
+        const item = room.items[i];
+        const override = this.pendingDragOverrides && this.pendingDragOverrides[i];
+        this.loadRoomItem(item, override);
       }
     }
 
@@ -305,33 +394,46 @@ export default class RoomScene extends Phaser.Scene {
     }
   }
 
-  loadRoomItem(item) {
+  loadRoomItem(item, dragOverride) {
     const catItem = this.catalogCache[item.catalogId];
     if (!catItem) return;
 
-    const cx = item.x + item.width / 2;
-    const cy = item.y + item.height / 2;
+    const effectiveX = (dragOverride && dragOverride.x != null) ? dragOverride.x : item.x;
+    const effectiveY = (dragOverride && dragOverride.y != null) ? dragOverride.y : item.y;
+
+    const cx = effectiveX + item.width / 2;
+    const cy = effectiveY + item.height / 2;
     const depth = item.behavior ? 2 : 1;
+    const isDraggable = item.behavior && item.behavior.startsWith('draggable');
 
     const textureKey = 'catalog_' + item.catalogId + '_' + (textureCounter++);
 
     const zone = {
-      x: item.x, y: item.y, w: item.width, h: item.height,
+      x: effectiveX, y: effectiveY, w: item.width, h: item.height,
       behavior: item.behavior,
       catalogId: item.catalogId,
       wearOffsetX: item.wearOffsetX || 0,
       wearOffsetY: item.wearOffsetY || 0,
       wearWidth: item.wearWidth || 40,
       wearHeight: item.wearHeight || 40,
+      img: null,
+      lockedBy: (dragOverride && dragOverride.draggedBy) || null,
     };
 
     const rotation = (item.rotation || 0) * Math.PI / 180;
 
-    if (this.textures.exists(textureKey)) {
-      const img = this.add.image(cx, cy, textureKey).setDisplaySize(item.width, item.height).setDepth(depth).setRotation(rotation);
+    const applyEffects = (img) => {
       if (item.behavior === 'collectible' && img.postFX) {
         img.postFX.addGlow(0xffffff, 4, 0, false, 0.1, 24);
+      } else if (isDraggable && img.postFX) {
+        img.postFX.addGlow(0x000000, 4, 0, false, 0.1, 24);
       }
+      zone.img = img;
+    };
+
+    if (this.textures.exists(textureKey)) {
+      const img = this.add.image(cx, cy, textureKey).setDisplaySize(item.width, item.height).setDepth(depth).setRotation(rotation);
+      applyEffects(img);
       this.itemGraphics.push(img);
     } else {
       const htmlImg = new Image();
@@ -339,9 +441,7 @@ export default class RoomScene extends Phaser.Scene {
         if (this.scene && this.scene.isActive()) {
           this.textures.addImage(textureKey, htmlImg);
           const img = this.add.image(cx, cy, textureKey).setDisplaySize(item.width, item.height).setDepth(depth).setRotation(rotation);
-          if (item.behavior === 'collectible' && img.postFX) {
-            img.postFX.addGlow(0xffffff, 4, 0, false, 0.1, 24);
-          }
+          applyEffects(img);
           this.itemGraphics.push(img);
         }
       };
@@ -358,5 +458,8 @@ export default class RoomScene extends Phaser.Scene {
     socket.off('penguinMoved', this.onPenguinMoved);
     socket.off('chatMessage', this.onChatMessage);
     socket.off('penguinClothesChanged', this.onPenguinClothesChanged);
+    socket.off('itemDragStart', this.onItemDragStart);
+    socket.off('itemDragMoved', this.onItemDragMoved);
+    socket.off('itemDragEnd', this.onItemDragEnd);
   }
 }

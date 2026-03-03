@@ -177,7 +177,7 @@ function RoomPreview({ room, catalogItems }) {
                   height: item.height * scale,
                   transform: rot ? `rotate(${rot}deg)` : undefined,
                   objectFit: 'fill',
-                  border: item.behavior === 'collectible' ? '2px solid white' : 'none',
+                  border: item.behavior === 'collectible' ? '2px solid white' : item.behavior?.startsWith('draggable') ? '2px solid black' : 'none',
                   pointerEvents: 'none',
                 }}
               />
@@ -589,6 +589,8 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                 >
                   <option value="">None</option>
                   <option value="collectible">Collectible</option>
+                  <option value="draggable">Draggable (resets)</option>
+                  <option value="draggable-persist">Draggable (persists)</option>
                 </select>
               </div>
               <div style={styles.row}>

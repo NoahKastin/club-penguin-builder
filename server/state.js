@@ -1,4 +1,5 @@
 const penguins = new Map();
+const dragState = new Map(); // key: "cpId:roomId", value: Map<itemIndex, { x, y, draggedBy }>
 
 export function addPenguin(socketId, name, cpId, spawnRoom, accountId = null) {
   const penguin = {
@@ -99,4 +100,66 @@ export function getPenguinsInCPRoom(cpId, roomId) {
     }
   }
   return result;
+}
+
+// --- Drag state ---
+
+function dragKey(cpId, roomId) {
+  return cpId + ':' + roomId;
+}
+
+export function startDrag(cpId, roomId, itemIndex, socketId) {
+  const key = dragKey(cpId, roomId);
+  if (!dragState.has(key)) dragState.set(key, new Map());
+  const room = dragState.get(key);
+  const existing = room.get(itemIndex);
+  if (existing && existing.draggedBy !== socketId) return false;
+  room.set(itemIndex, { x: null, y: null, draggedBy: socketId });
+  return true;
+}
+
+export function moveDragItem(cpId, roomId, itemIndex, x, y) {
+  const key = dragKey(cpId, roomId);
+  const room = dragState.get(key);
+  if (!room) return;
+  const entry = room.get(itemIndex);
+  if (entry) {
+    entry.x = x;
+    entry.y = y;
+  }
+}
+
+export function stopDrag(cpId, roomId, itemIndex) {
+  const key = dragKey(cpId, roomId);
+  const room = dragState.get(key);
+  if (!room) return null;
+  const entry = room.get(itemIndex);
+  room.delete(itemIndex);
+  if (room.size === 0) dragState.delete(key);
+  return entry;
+}
+
+export function getDragOverrides(cpId, roomId) {
+  const key = dragKey(cpId, roomId);
+  const room = dragState.get(key);
+  if (!room || room.size === 0) return null;
+  const overrides = {};
+  for (const [idx, entry] of room) {
+    overrides[idx] = { x: entry.x, y: entry.y, draggedBy: entry.draggedBy };
+  }
+  return overrides;
+}
+
+export function clearDragLocks(socketId) {
+  const released = [];
+  for (const [key, room] of dragState) {
+    for (const [idx, entry] of room) {
+      if (entry.draggedBy === socketId) {
+        released.push({ key, itemIndex: idx, x: entry.x, y: entry.y });
+        room.delete(idx);
+      }
+    }
+    if (room.size === 0) dragState.delete(key);
+  }
+  return released;
 }

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import geoip from 'fast-geoip';
 import db from './db.js';
-import { getClubPenguin, createClubPenguin, updateClubPenguin, listClubPenguins } from './clubPenguins.js';
+import { getClubPenguin, createClubPenguin, updateClubPenguin, updateRoomItemPosition, listClubPenguins } from './clubPenguins.js';
 import { createAccount, login, getAccount, createSession, getSession, deleteSession, updateAttributionName } from './accounts.js';
 import { launchParty, getPartyLog } from './parties.js';
 import { createCatalogItem, getCatalogItem, listCatalogItems, catalogItemExistsByName } from './catalog.js';
@@ -27,6 +27,11 @@ import {
   changePenguinRoom,
   getPenguinsInCPRoom,
   getPenguinCountForCP,
+  startDrag,
+  moveDragItem,
+  stopDrag,
+  getDragOverrides,
+  clearDragLocks,
 } from './state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -558,6 +563,7 @@ io.on('connection', (socket) => {
       catalogItems: resolveCatalogItems(room),
       inventory: penguin.inventory,
       clothes: penguin.clothes,
+      dragOverrides: getDragOverrides(cpId, penguin.roomId),
     });
 
     broadcastToCPRoom(cpId, penguin.roomId, 'penguinJoined', penguin, socket.id);
@@ -619,6 +625,7 @@ io.on('connection', (socket) => {
       penguins: getPenguinsInCPRoom(penguin.cpId, roomId),
       you: penguin.id,
       catalogItems: resolveCatalogItems(newRoom),
+      dragOverrides: getDragOverrides(penguin.cpId, roomId),
     });
 
     broadcastToCPRoom(penguin.cpId, roomId, 'penguinJoined', penguin, socket.id);
@@ -715,6 +722,61 @@ io.on('connection', (socket) => {
       hideEmoji: penguin.hideEmoji,
     });
     socket.emit('hideEmojiUpdated', { hideEmoji: penguin.hideEmoji });
+  });
+
+  // --- Drag events ---
+
+  socket.on('dragStart', ({ itemIndex }) => {
+    const penguin = getPenguin(socket.id);
+    if (!penguin) return;
+    const cp = getClubPenguin(penguin.cpId);
+    if (!cp) return;
+    const room = cp.rooms[penguin.roomId];
+    if (!room || !room.items || itemIndex < 0 || itemIndex >= room.items.length) return;
+    const item = room.items[itemIndex];
+    if (!item.behavior || !item.behavior.startsWith('draggable')) return;
+
+    if (!startDrag(penguin.cpId, penguin.roomId, itemIndex, socket.id)) {
+      return; // locked by another penguin
+    }
+
+    broadcastToCPRoom(penguin.cpId, penguin.roomId, 'itemDragStart', {
+      itemIndex,
+      draggedBy: penguin.id,
+    }, socket.id);
+  });
+
+  socket.on('dragMove', ({ itemIndex, x, y }) => {
+    const penguin = getPenguin(socket.id);
+    if (!penguin) return;
+    x = Math.max(0, Math.min(800, x));
+    y = Math.max(0, Math.min(600, y));
+    moveDragItem(penguin.cpId, penguin.roomId, itemIndex, x, y);
+    broadcastToCPRoom(penguin.cpId, penguin.roomId, 'itemDragMoved', {
+      itemIndex, x, y,
+    }, socket.id);
+  });
+
+  socket.on('dragEnd', ({ itemIndex }) => {
+    const penguin = getPenguin(socket.id);
+    if (!penguin) return;
+    const entry = stopDrag(penguin.cpId, penguin.roomId, itemIndex);
+    if (!entry) return;
+
+    const cp = getClubPenguin(penguin.cpId);
+    if (cp && entry.x != null && entry.y != null) {
+      const room = cp.rooms[penguin.roomId];
+      const item = room && room.items && room.items[itemIndex];
+      if (item && item.behavior === 'draggable-persist') {
+        updateRoomItemPosition(penguin.cpId, penguin.roomId, itemIndex, entry.x, entry.y);
+      }
+    }
+
+    broadcastToCPRoom(penguin.cpId, penguin.roomId, 'itemDragEnd', {
+      itemIndex,
+      x: entry.x,
+      y: entry.y,
+    }, socket.id);
   });
 
   function validateItemAccess(rooms, accountId) {
@@ -820,7 +882,20 @@ io.on('connection', (socket) => {
     io.emit('clubPenguinUpdated', summary);
   });
 
+  function releaseDragLocks() {
+    const released = clearDragLocks(socket.id);
+    for (const r of released) {
+      const [cpId, roomId] = r.key.split(':');
+      broadcastToCPRoom(cpId, roomId, 'itemDragEnd', {
+        itemIndex: r.itemIndex,
+        x: r.x,
+        y: r.y,
+      });
+    }
+  }
+
   socket.on('leaveCP', () => {
+    releaseDragLocks();
     const penguin = removePenguin(socket.id);
     if (penguin) {
       broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinLeft', { id: penguin.id, name: penguin.name });
@@ -829,6 +904,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    releaseDragLocks();
     const penguin = removePenguin(socket.id);
     if (penguin) {
       broadcastToCPRoom(penguin.cpId, penguin.roomId, 'penguinLeft', { id: penguin.id, name: penguin.name });

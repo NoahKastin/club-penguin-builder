@@ -22,6 +22,9 @@ const listeners = {
   hideEmojiUpdated: [],
   clubPenguinCreated: [],
   clubPenguinUpdated: [],
+  itemDragStart: [],
+  itemDragMoved: [],
+  itemDragEnd: [],
 };
 
 // Register server event forwarding
@@ -71,6 +74,18 @@ export function unequipItem(clothesIndex) {
 
 export function setHideEmoji(hide) {
   socket.emit('setHideEmoji', hide);
+}
+
+export function dragStart(itemIndex) {
+  socket.emit('dragStart', { itemIndex });
+}
+
+export function dragMove(itemIndex, x, y) {
+  socket.emit('dragMove', { itemIndex, x, y });
+}
+
+export function dragEnd(itemIndex) {
+  socket.emit('dragEnd', { itemIndex });
 }
 
 let storedToken = null;

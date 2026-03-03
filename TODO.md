@@ -48,8 +48,8 @@
 
 ## Item Behaviors (per room)
 - [x] Collectible by penguins (clothes: render on penguins — pins, colors/sprites, costumes, hats, etc.)
-- [ ] Draggable by penguins
-- [ ] Resizable items within rooms
+- [x] Draggable by penguins (resets and persists variants, one-at-a-time locking, black glow)
+- [x] Resizable items within rooms (width/height fields in room editor)
 - [ ] Physics: skid/bounce, gravity toward a location
 - [ ] Block penguin movement
 - [x] Clothes equip without regard for item slots (later-equipped goes on top); puffles are a subset of clothes
@@ -77,7 +77,7 @@
 - [ ] Separate tiers for paying to support the server vs. paying to support those who are supporting the server; moderation-choice perks can be gated behind either
 - [ ] Supporters are not synonymous with party planners (someone can pay to support without having rights to adjust the CP, though party planner access itself could be a perk for supporting)
 - [ ] Monetization: party planners can paywall moderation features (external items, clothes memory, enforcement actions) via subscription at whatever price the party planner wants
-- [x] Update FAQ Pearl ecosystem entry once seller cash-out and additional Pearl-gated features are in
+- [ ] Update FAQ Pearl ecosystem entry once seller cash-out and additional Pearl-gated features are in
 
 ## Deployment
 - [x] Deploy to Fly.io

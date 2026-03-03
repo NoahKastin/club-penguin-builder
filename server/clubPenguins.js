@@ -36,6 +36,17 @@ export function updateClubPenguin(cpId, name, rooms) {
   return { id: cpId, name, rooms, spawnRoom };
 }
 
+export function updateRoomItemPosition(cpId, roomId, itemIndex, x, y) {
+  const cp = getClubPenguin(cpId);
+  if (!cp || !cp.rooms[roomId]) return false;
+  const items = cp.rooms[roomId].items;
+  if (!items || itemIndex < 0 || itemIndex >= items.length) return false;
+  items[itemIndex].x = x;
+  items[itemIndex].y = y;
+  db.prepare('UPDATE club_penguins SET rooms = ? WHERE id = ?').run(JSON.stringify(cp.rooms), cpId);
+  return true;
+}
+
 export function listClubPenguins() {
   const rows = db.prepare(`
     SELECT cp.*, (SELECT MAX(launched_at) FROM parties WHERE cp_id = cp.id) AS latest_party
