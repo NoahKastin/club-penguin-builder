@@ -194,4 +194,30 @@ if (!acctCols3.includes('attribution_name')) {
   db.exec("ALTER TABLE accounts ADD COLUMN attribution_name TEXT NOT NULL DEFAULT ''");
 }
 
+// Game bundles (collections of items-with-behaviors)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS catalog_games (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    creator_id TEXT NOT NULL,
+    items TEXT NOT NULL,
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    gravity_direction TEXT,
+    price INTEGER NOT NULL DEFAULT 0,
+    attribution TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )
+`);
+
+// Game purchases (tracks who bought what game)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS game_purchases (
+    account_id TEXT NOT NULL,
+    game_id TEXT NOT NULL,
+    purchased_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    UNIQUE(account_id, game_id)
+  )
+`);
+
 export default db;

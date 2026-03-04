@@ -118,7 +118,8 @@ export default class RoomScene extends Phaser.Scene {
       // Move local penguin
       if (this.localId && this.penguins.has(this.localId)) {
         const penguin = this.penguins.get(this.localId);
-        const adjusted = adjustMoveTarget(penguin.sprite.x, penguin.sprite.y, pointer.x, pointer.y, this.getBlockers());
+        // Only room-level blockers block penguin movement (not game items)
+        const adjusted = adjustMoveTarget(penguin.sprite.x, penguin.sprite.y, pointer.x, pointer.y, this.getBlockers(undefined, null));
         penguin.moveTo(adjusted.x, adjusted.y);
         // Send raw target so server can detect skid pushes along original path
         socket.move(pointer.x, pointer.y);
@@ -131,8 +132,13 @@ export default class RoomScene extends Phaser.Scene {
       const zone = this.itemZones[itemIndex];
       if (!zone || !zone.img) return;
 
-      const cx = Math.max(zone.w / 2, Math.min(800 - zone.w / 2, pointer.x - offsetX));
-      const cy = Math.max(zone.h / 2, Math.min(600 - zone.h / 2, pointer.y - offsetY));
+      const gb = zone.gameBounds;
+      const minX = gb ? gb.x + zone.w / 2 : zone.w / 2;
+      const maxX = gb ? gb.x + gb.w - zone.w / 2 : 800 - zone.w / 2;
+      const minY = gb ? gb.y + zone.h / 2 : zone.h / 2;
+      const maxY = gb ? gb.y + gb.h - zone.h / 2 : 600 - zone.h / 2;
+      const cx = Math.max(minX, Math.min(maxX, pointer.x - offsetX));
+      const cy = Math.max(minY, Math.min(maxY, pointer.y - offsetY));
 
       zone.img.setPosition(cx, cy);
       zone.x = cx - zone.w / 2;
@@ -238,8 +244,13 @@ export default class RoomScene extends Phaser.Scene {
 
       const startAnim = () => {
         if (!zone.img) return;
-        const blockers = this.getBlockers(data.itemIndex);
-        const frames = simulateSkid(data.startX, data.startY, zone.w, zone.h, data.vx, data.vy, blockers);
+        const blockers = this.getBlockers(data.itemIndex, zone.gameGroup);
+        const gb = zone.gameBounds;
+        const boundsW = gb ? gb.w : 800;
+        const boundsH = gb ? gb.h : 600;
+        const boundsX = gb ? gb.x : 0;
+        const boundsY = gb ? gb.y : 0;
+        const frames = simulateSkid(data.startX, data.startY, zone.w, zone.h, data.vx, data.vy, blockers, boundsW, boundsH, boundsX, boundsY);
         if (frames.length < 2) return;
 
         this.skidAnimations.add(data.itemIndex);
@@ -288,8 +299,13 @@ export default class RoomScene extends Phaser.Scene {
         return;
       }
 
-      const blockers = this.getBlockers(data.itemIndex);
-      const frames = simulateGravity(data.startX, data.startY, zone.w, zone.h, data.direction, blockers);
+      const blockers = this.getBlockers(data.itemIndex, zone.gameGroup);
+      const gb = zone.gameBounds;
+      const boundsW = gb ? gb.w : 800;
+      const boundsH = gb ? gb.h : 600;
+      const boundsX = gb ? gb.x : 0;
+      const boundsY = gb ? gb.y : 0;
+      const frames = simulateGravity(data.startX, data.startY, zone.w, zone.h, data.direction, blockers, boundsW, boundsH, boundsX, boundsY);
       if (frames.length < 2) return;
 
       this.skidAnimations.add(data.itemIndex);
@@ -429,7 +445,7 @@ export default class RoomScene extends Phaser.Scene {
     const penguin = this.penguins.get(this.localId);
     const targetX = exit.x + exit.w / 2;
     const targetY = exit.y + exit.h / 2;
-    const adjusted = adjustMoveTarget(penguin.sprite.x, penguin.sprite.y, targetX, targetY, this.getBlockers());
+    const adjusted = adjustMoveTarget(penguin.sprite.x, penguin.sprite.y, targetX, targetY, this.getBlockers(undefined, null));
 
     // If blocked from reaching exit, just walk to the adjusted point (don't change room)
     const reachedExit = Math.abs(adjusted.x - targetX) < 10 && Math.abs(adjusted.y - targetY) < 10;
@@ -535,6 +551,9 @@ export default class RoomScene extends Phaser.Scene {
       blocksMovement: !!item.blocksMovement,
       skid: !!item.skid,
       gravity: !!item.gravity,
+      gameGroup: item.gameGroup || null,
+      gameBounds: item.gameBounds || null,
+      gameGravityDirection: item.gameGravityDirection || null,
       img: null,
       lockedBy: (dragOverride && dragOverride.draggedBy) || null,
     };
@@ -570,9 +589,9 @@ export default class RoomScene extends Phaser.Scene {
     this.itemZones.push(zone);
   }
 
-  getBlockers(excludeIndex) {
+  getBlockers(excludeIndex, gameGroup) {
     return this.itemZones
-      .filter((z, i) => z.blocksMovement && i !== excludeIndex)
+      .filter((z, i) => z.blocksMovement && i !== excludeIndex && z.gameGroup === (gameGroup || null))
       .map(z => ({ x: z.x, y: z.y, w: z.w, h: z.h }));
   }
 

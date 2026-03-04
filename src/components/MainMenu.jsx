@@ -359,7 +359,11 @@ export default function MainMenu({ penguinName, authToken, accountId, attributio
           </div>
           <div>
             <strong>What are Pearls?</strong>
-            <div style={{ color: '#ccc' }}>Pearls are the platform's currency. You can buy Pearl bundles via Stripe in the Pearl Fishery, then spend them on priced items in the Catalog. When someone buys an item you uploaded, you earn Pearls from the sale. If you've earned Pearls, you can cash them out to real money by setting up a payout account through Stripe Connect in the Pearl Fishery.</div>
+            <div style={{ color: '#ccc' }}>Pearls are the platform's currency. You can buy Pearl bundles via Stripe in the Pearl Fishery, then spend them on priced items and games in the Catalog. When someone buys an item or game you created, you earn Pearls from the sale. If you've earned Pearls, you can cash them out to real money by setting up a payout account through Stripe Connect in the Pearl Fishery.</div>
+          </div>
+          <div>
+            <strong>What are games?</strong>
+            <div style={{ color: '#ccc' }}>Games are bundles of items with their behaviors (draggable, collectible, physics, etc.) that you can export from a room and publish to the Catalog. Other party planners can then place your game in their rooms as a single unit. Items inside a game interact with each other (skid, gravity, blocking) but are isolated from regular room items. To export a game, set up items with behaviors in a room in Build mode, then click "Export as Game" — all items must be your own uploads. Games can be free or priced in Pearls, just like catalog items.</div>
           </div>
           <div>
             <strong>What dimensions should I know for building and uploading?</strong>
@@ -370,8 +374,8 @@ export default function MainMenu({ penguinName, authToken, accountId, attributio
             </div>
           </div>
           <div>
-            <strong>What features are coming next?</strong>
-            <div style={{ color: '#ccc' }}>See the full roadmap at <a href="https://github.com/NoahKastin/club-penguin-builder/blob/main/TODO.md" target="_blank" rel="noopener noreferrer" style={{ color: '#4a90d9' }}>TODO.md on GitHub</a>.</div>
+            <strong>What features are planned?</strong>
+            <div style={{ color: '#ccc' }}>Moderation tools, monetization options, and more are on the roadmap. See <a href="https://github.com/NoahKastin/club-penguin-builder/blob/main/TODO.md" target="_blank" rel="noopener noreferrer" style={{ color: '#4a90d9' }}>TODO.md on GitHub</a> for details.</div>
           </div>
           <div>
             <strong>Need help or want to give feedback?</strong>
@@ -382,7 +386,7 @@ export default function MainMenu({ penguinName, authToken, accountId, attributio
             <div style={{ color: '#ccc' }}>
               By creating an account or using Club Penguin Builder ("the Platform"), you agree to these terms. You are responsible for keeping your account credentials secure. You must be at least 13 years old to use the Platform.<br /><br />
               When you upload images to the Catalog, you represent that you own the content or have the rights to share it. Uploads are reviewed by automated AI moderation. The Platform may remove content that violates these terms. By uploading, you grant the Platform a license to display and distribute your content within the Platform.<br /><br />
-              Pearls are a virtual currency that can be purchased via Stripe, earned by selling catalog items, and spent on catalog items. Pearls have no cash value unless withdrawn through Stripe Connect. Pearl purchases are non-refundable. The Platform may adjust Pearl pricing or availability at any time.<br /><br />
+              Pearls are a virtual currency that can be purchased via Stripe, earned by selling catalog items and games, and spent on catalog items and games. Pearls have no cash value unless withdrawn through Stripe Connect. Pearl purchases are non-refundable. The Platform may adjust Pearl pricing or availability at any time.<br /><br />
               You may not upload or facilitate content that is illegal, infringes on intellectual property, violates <a href="https://stripe.com/legal/restricted-businesses" target="_blank" rel="noopener noreferrer" style={{ color: '#4a90d9' }}>Stripe's Restricted Businesses policy</a>, or constitutes harassment or hate speech. Violations may result in account suspension without refund.<br /><br />
               The Platform is provided "as is" without warranties of any kind. To the fullest extent permitted by law, the Platform and its operators are not liable for any indirect, incidental, or consequential damages. The Platform is not available in Canada or the United Kingdom due to trademark considerations. These terms may be updated at any time; continued use constitutes acceptance. Source code is available under <a href="https://github.com/NoahKastin/club-penguin-builder" target="_blank" rel="noopener noreferrer" style={{ color: '#4a90d9' }}>CC-BY 4.0</a>.
             </div>

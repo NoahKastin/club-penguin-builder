@@ -156,7 +156,9 @@ const styles = {
 };
 
 export default function Catalog({ authToken, accountId, penguinName, attributionName, onBack, onPearlShop }) {
+  const [tab, setTab] = useState('items'); // 'items' | 'games'
   const [items, setItems] = useState([]);
+  const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [attribution, setAttribution] = useState(attributionName || penguinName || '');
@@ -169,14 +171,19 @@ export default function Catalog({ authToken, accountId, penguinName, attribution
   const [sortDir, setSortDir] = useState('asc');
   const [favorites, setFavorites] = useState(new Set());
   const [purchases, setPurchases] = useState(new Set());
+  const [gamePurchases, setGamePurchases] = useState(new Set());
   const [balance, setBalance] = useState(0);
   const [needsPearls, setNeedsPearls] = useState(null);
 
   useEffect(() => {
-    fetchRetry('/api/catalog')
-      .then(r => r.json())
-      .then(data => { setItems(data); setLoading(false); })
-      .catch(() => setLoading(false));
+    Promise.all([
+      fetchRetry('/api/catalog').then(r => r.json()),
+      fetchRetry('/api/games').then(r => r.json()),
+    ]).then(([itemData, gameData]) => {
+      setItems(itemData);
+      setGames(gameData);
+      setLoading(false);
+    }).catch(() => setLoading(false));
 
     if (authToken) {
       fetch('/api/auth/preferences', { headers: { Authorization: `Bearer ${authToken}` } })
@@ -193,6 +200,9 @@ export default function Catalog({ authToken, accountId, penguinName, attribution
       fetch('/api/account/purchases', { headers: { Authorization: `Bearer ${authToken}` } })
         .then(r => r.ok ? r.json() : [])
         .then(ids => setPurchases(new Set(ids)));
+      fetch('/api/account/game-purchases', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : [])
+        .then(ids => setGamePurchases(new Set(ids)));
       fetch('/api/account/balance', { headers: { Authorization: `Bearer ${authToken}` } })
         .then(r => r.ok ? r.json() : { pearls: 0 })
         .then(data => setBalance(data.pearls));
@@ -334,13 +344,87 @@ export default function Catalog({ authToken, accountId, penguinName, attribution
     return purchases.has(item.id);
   }
 
+  function ownsGame(game) {
+    if (game.creatorId === accountId) return true;
+    return gamePurchases.has(game.id);
+  }
+
+  function handleGamePurchase(gameId) {
+    setError('');
+    setNeedsPearls(null);
+    fetch(`/api/games/${gameId}/purchase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          if (data.error.toLowerCase().includes('enough')) {
+            setNeedsPearls(data.error);
+          } else {
+            setError(data.error);
+          }
+          return;
+        }
+        setGamePurchases(prev => new Set([...prev, gameId]));
+        setBalance(data.pearls);
+        setSuccess('Game purchased!');
+      })
+      .catch(() => setError('Purchase failed'));
+  }
+
+  function handleGameAcquire(gameId) {
+    if (!authToken) return;
+    setError('');
+    fetch(`/api/games/${gameId}/acquire`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { setError(data.error); return; }
+        setGamePurchases(prev => new Set([...prev, gameId]));
+      })
+      .catch(() => setError('Acquire failed'));
+  }
+
+  function sortedAndFilteredGames() {
+    let filtered = games;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      filtered = filtered.filter(g => g.name.toLowerCase().includes(q));
+    }
+    const sorted = [...filtered].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'name': cmp = a.name.localeCompare(b.name); break;
+        case 'createdAt': cmp = (a.createdAt || 0) - (b.createdAt || 0); break;
+        case 'attribution': cmp = (a.attribution || '').localeCompare(b.attribution || ''); break;
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+    return sorted;
+  }
+
   const displayItems = sortedAndFiltered();
+  const displayGames = sortedAndFilteredGames();
 
   return (
     <div style={styles.container}>
       <div style={styles.title}>Catalog</div>
 
-      {authToken && (
+      <div style={{ display: 'flex', gap: '0', width: '100%', maxWidth: '240px' }}>
+        <button
+          style={{ flex: 1, padding: '6px 16px', fontSize: '0.9rem', border: '1px solid #555', borderRadius: '6px 0 0 6px', cursor: 'pointer', fontWeight: 'bold', background: tab === 'items' ? '#4a90d9' : '#2a2a3e', color: tab === 'items' ? '#fff' : '#aaa' }}
+          onClick={() => { setTab('items'); setError(''); setSuccess(''); }}
+        >Items</button>
+        <button
+          style={{ flex: 1, padding: '6px 16px', fontSize: '0.9rem', border: '1px solid #555', borderRadius: '0 6px 6px 0', cursor: 'pointer', fontWeight: 'bold', background: tab === 'games' ? '#4a90d9' : '#2a2a3e', color: tab === 'games' ? '#fff' : '#aaa' }}
+          onClick={() => { setTab('games'); setError(''); setSuccess(''); }}
+        >Games</button>
+      </div>
+
+      {tab === 'items' && authToken && (
         <div style={styles.uploadSection}>
           <strong>Add Item</strong>
           <div style={styles.field}>
@@ -394,7 +478,7 @@ export default function Catalog({ authToken, accountId, penguinName, attribution
         <input
           style={styles.searchInput}
           type="text"
-          placeholder="Search items..."
+          placeholder={tab === 'items' ? 'Search items...' : 'Search games...'}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -405,7 +489,7 @@ export default function Catalog({ authToken, accountId, penguinName, attribution
         >
           <option value="name">A–Z</option>
           <option value="createdAt">Uploaded</option>
-          <option value="attribution">Uploader</option>
+          <option value="attribution">{tab === 'items' ? 'Uploader' : 'Creator'}</option>
         </select>
         <button
           onClick={() => saveSort(sortField, sortDir === 'asc' ? 'desc' : 'asc')}
@@ -418,50 +502,91 @@ export default function Catalog({ authToken, accountId, penguinName, attribution
 
       {loading ? (
         <div style={styles.empty}>Loading...</div>
-      ) : displayItems.length === 0 ? (
-        <div style={styles.empty}>{search.trim() ? 'No matching items.' : 'No items in the catalog yet.'}</div>
-      ) : (
-        <div style={styles.grid}>
-          {displayItems.map(item => (
-            <div key={item.id} style={styles.itemCard}>
-              {authToken && (
-                <button
-                  style={styles.favButton}
-                  onClick={() => toggleFavorite(item.id)}
-                  title={favorites.has(item.id) ? 'Remove from favorites' : 'Add to favorites'}
-                >
-                  {favorites.has(item.id) ? '\u2605' : '\u2606'}
-                </button>
-              )}
-              <img src={item.image} alt={item.name} style={styles.thumbnail} />
-              <div style={styles.itemName}>{item.name}</div>
-              {item.attribution && <div style={{ fontSize: '0.75rem', color: '#888' }}>by {item.attribution}</div>}
-              {item.price > 0 ? (
-                ownsItem(item) ? (
-                  <div style={{ fontSize: '0.75rem', color: '#6bff6b' }}>Owned</div>
-                ) : (
+      ) : tab === 'items' ? (
+        displayItems.length === 0 ? (
+          <div style={styles.empty}>{search.trim() ? 'No matching items.' : 'No items in the catalog yet.'}</div>
+        ) : (
+          <div style={styles.grid}>
+            {displayItems.map(item => (
+              <div key={item.id} style={styles.itemCard}>
+                {authToken && (
                   <button
-                    style={{ padding: '3px 10px', fontSize: '0.75rem', borderRadius: '4px', border: 'none', background: '#d9a04a', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
-                    onClick={() => handlePurchase(item.id)}
+                    style={styles.favButton}
+                    onClick={() => toggleFavorite(item.id)}
+                    title={favorites.has(item.id) ? 'Remove from favorites' : 'Add to favorites'}
                   >
-                    Buy ({item.price} Pearl{item.price !== 1 ? 's' : ''})
+                    {favorites.has(item.id) ? '\u2605' : '\u2606'}
                   </button>
-                )
-              ) : ownsItem(item) ? (
-                <div style={{ fontSize: '0.75rem', color: '#6bff6b' }}>Acquired</div>
-              ) : authToken ? (
-                <button
-                  style={{ padding: '3px 10px', fontSize: '0.75rem', borderRadius: '4px', border: 'none', background: '#4a90d9', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
-                  onClick={() => handleAcquire(item.id)}
-                >
-                  Acquire (Free)
-                </button>
-              ) : (
-                <div style={{ fontSize: '0.75rem', color: '#aaa' }}>Free</div>
-              )}
-            </div>
-          ))}
-        </div>
+                )}
+                <img src={item.image} alt={item.name} style={styles.thumbnail} />
+                <div style={styles.itemName}>{item.name}</div>
+                {item.attribution && <div style={{ fontSize: '0.75rem', color: '#888' }}>by {item.attribution}</div>}
+                {item.price > 0 ? (
+                  ownsItem(item) ? (
+                    <div style={{ fontSize: '0.75rem', color: '#6bff6b' }}>Owned</div>
+                  ) : (
+                    <button
+                      style={{ padding: '3px 10px', fontSize: '0.75rem', borderRadius: '4px', border: 'none', background: '#d9a04a', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                      onClick={() => handlePurchase(item.id)}
+                    >
+                      Buy ({item.price} Pearl{item.price !== 1 ? 's' : ''})
+                    </button>
+                  )
+                ) : ownsItem(item) ? (
+                  <div style={{ fontSize: '0.75rem', color: '#6bff6b' }}>Acquired</div>
+                ) : authToken ? (
+                  <button
+                    style={{ padding: '3px 10px', fontSize: '0.75rem', borderRadius: '4px', border: 'none', background: '#4a90d9', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                    onClick={() => handleAcquire(item.id)}
+                  >
+                    Acquire (Free)
+                  </button>
+                ) : (
+                  <div style={{ fontSize: '0.75rem', color: '#aaa' }}>Free</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        displayGames.length === 0 ? (
+          <div style={styles.empty}>{search.trim() ? 'No matching games.' : 'No games in the catalog yet.'}</div>
+        ) : (
+          <div style={styles.grid}>
+            {displayGames.map(game => (
+              <div key={game.id} style={styles.itemCard}>
+                <div style={{ ...styles.thumbnail, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', color: '#888', textAlign: 'center', padding: '8px' }}>
+                  {game.items.length} item{game.items.length !== 1 ? 's' : ''}
+                </div>
+                <div style={styles.itemName}>{game.name}</div>
+                {game.attribution && <div style={{ fontSize: '0.75rem', color: '#888' }}>by {game.attribution}</div>}
+                {game.price > 0 ? (
+                  ownsGame(game) ? (
+                    <div style={{ fontSize: '0.75rem', color: '#6bff6b' }}>Owned</div>
+                  ) : (
+                    <button
+                      style={{ padding: '3px 10px', fontSize: '0.75rem', borderRadius: '4px', border: 'none', background: '#d9a04a', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                      onClick={() => handleGamePurchase(game.id)}
+                    >
+                      Buy ({game.price} Pearl{game.price !== 1 ? 's' : ''})
+                    </button>
+                  )
+                ) : ownsGame(game) ? (
+                  <div style={{ fontSize: '0.75rem', color: '#6bff6b' }}>Acquired</div>
+                ) : authToken ? (
+                  <button
+                    style={{ padding: '3px 10px', fontSize: '0.75rem', borderRadius: '4px', border: 'none', background: '#4a90d9', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                    onClick={() => handleGameAcquire(game.id)}
+                  >
+                    Acquire (Free)
+                  </button>
+                ) : (
+                  <div style={{ fontSize: '0.75rem', color: '#aaa' }}>Free</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
       )}
 
       <button style={styles.backButton} onClick={onBack}>Back</button>

@@ -145,7 +145,7 @@ const SKID_FRICTION = 0.96;
 const SKID_BOUNCE = 0.3;
 const SKID_STOP = 0.5;
 
-export function simulateSkid(startX, startY, itemW, itemH, vx, vy, blockers, roomW = 800, roomH = 600) {
+export function simulateSkid(startX, startY, itemW, itemH, vx, vy, blockers, roomW = 800, roomH = 600, originX = 0, originY = 0) {
   let x = startX;
   let y = startY;
   const frames = [{ x, y }];
@@ -154,11 +154,11 @@ export function simulateSkid(startX, startY, itemW, itemH, vx, vy, blockers, roo
     x += vx;
     y += vy;
 
-    // Wall bounce (item edges)
-    if (x < 0) { x = 0; vx = -vx * SKID_BOUNCE; }
-    if (x + itemW > roomW) { x = roomW - itemW; vx = -vx * SKID_BOUNCE; }
-    if (y < 0) { y = 0; vy = -vy * SKID_BOUNCE; }
-    if (y + itemH > roomH) { y = roomH - itemH; vy = -vy * SKID_BOUNCE; }
+    // Wall bounce (item edges) — bounded by origin + dimensions
+    if (x < originX) { x = originX; vx = -vx * SKID_BOUNCE; }
+    if (x + itemW > originX + roomW) { x = originX + roomW - itemW; vx = -vx * SKID_BOUNCE; }
+    if (y < originY) { y = originY; vy = -vy * SKID_BOUNCE; }
+    if (y + itemH > originY + roomH) { y = originY + roomH - itemH; vy = -vy * SKID_BOUNCE; }
 
     // Blocker bounce
     for (const b of blockers) {
@@ -193,7 +193,7 @@ const GRAV_BOUNCE = 0.05;
 const GRAV_STOP = 0.3;
 const GRAVITY_STRENGTH = 0.3; // pixels/frame²
 
-export function getGravityAccel(direction, itemX, itemY, itemW, itemH) {
+export function getGravityAccel(direction, itemX, itemY, itemW, itemH, centerX = 400, centerY = 300) {
   switch (direction) {
     case 'up': return { gx: 0, gy: -GRAVITY_STRENGTH };
     case 'left': return { gx: -GRAVITY_STRENGTH, gy: 0 };
@@ -201,8 +201,8 @@ export function getGravityAccel(direction, itemX, itemY, itemW, itemH) {
     case 'center': {
       const cx = itemX + itemW / 2;
       const cy = itemY + itemH / 2;
-      const dx = 400 - cx;
-      const dy = 300 - cy;
+      const dx = centerX - cx;
+      const dy = centerY - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < 1) return { gx: 0, gy: 0 };
       return { gx: (dx / dist) * GRAVITY_STRENGTH, gy: (dy / dist) * GRAVITY_STRENGTH };
@@ -211,28 +211,31 @@ export function getGravityAccel(direction, itemX, itemY, itemW, itemH) {
   }
 }
 
-export function simulateGravity(startX, startY, itemW, itemH, direction, blockers, roomW = 800, roomH = 600) {
+export function simulateGravity(startX, startY, itemW, itemH, direction, blockers, roomW = 800, roomH = 600, originX = 0, originY = 0) {
   let x = startX;
   let y = startY;
   let vx = 0;
   let vy = 0;
   const frames = [{ x, y }];
+  // Center for 'center' gravity: middle of the bounds area
+  const centerX = originX + roomW / 2;
+  const centerY = originY + roomH / 2;
 
   for (let i = 0; i < MAX_STEPS; i++) {
     // Apply gravity acceleration (recalculated each step for 'center' direction)
-    const { gx, gy } = getGravityAccel(direction, x, y, itemW, itemH);
+    const { gx, gy } = getGravityAccel(direction, x, y, itemW, itemH, centerX, centerY);
     vx += gx;
     vy += gy;
 
     x += vx;
     y += vy;
 
-    // Wall collision
+    // Wall collision — bounded by origin + dimensions
     let hitWall = false;
-    if (x < 0) { x = 0; vx = -vx * GRAV_BOUNCE; hitWall = true; }
-    if (x + itemW > roomW) { x = roomW - itemW; vx = -vx * GRAV_BOUNCE; hitWall = true; }
-    if (y < 0) { y = 0; vy = -vy * GRAV_BOUNCE; hitWall = true; }
-    if (y + itemH > roomH) { y = roomH - itemH; vy = -vy * GRAV_BOUNCE; hitWall = true; }
+    if (x < originX) { x = originX; vx = -vx * GRAV_BOUNCE; hitWall = true; }
+    if (x + itemW > originX + roomW) { x = originX + roomW - itemW; vx = -vx * GRAV_BOUNCE; hitWall = true; }
+    if (y < originY) { y = originY; vy = -vy * GRAV_BOUNCE; hitWall = true; }
+    if (y + itemH > originY + roomH) { y = originY + roomH - itemH; vy = -vy * GRAV_BOUNCE; hitWall = true; }
 
     // Blocker collision
     let hitBlocker = false;

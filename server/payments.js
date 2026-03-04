@@ -1,5 +1,6 @@
 import db from './db.js';
 import { getCatalogItem } from './catalog.js';
+import { getGame } from './games.js';
 
 // Lazy-load Stripe to avoid slowing down server startup
 let stripe = null;
@@ -177,6 +178,51 @@ export function acquireFreeItem(accountId, catalogId) {
 
 export function getPurchasedItems(accountId) {
   return db.prepare('SELECT catalog_id FROM item_purchases WHERE account_id = ?').all(accountId).map(r => r.catalog_id);
+}
+
+// --- Game purchases ---
+
+export function purchaseGame(buyerAccountId, gameId) {
+  const game = getGame(gameId);
+  if (!game) return { ok: false, error: 'Game not found' };
+  if (game.price <= 0) return { ok: false, error: 'This game is free — acquire it instead' };
+  if (game.creatorId === buyerAccountId) return { ok: false, error: 'You created this game — you already own it' };
+  const existing = db.prepare('SELECT 1 FROM game_purchases WHERE account_id = ? AND game_id = ?').get(buyerAccountId, gameId);
+  if (existing) return { ok: false, error: 'You already own this game' };
+  const balance = getBalance(buyerAccountId);
+  if (balance < game.price) return { ok: false, error: `Not enough Pearls (need ${game.price}, have ${balance})` };
+
+  const txn = db.transaction(() => {
+    db.prepare('UPDATE accounts SET pearl_balance = pearl_balance - ? WHERE id = ?').run(game.price, buyerAccountId);
+    db.prepare('INSERT INTO pearl_transactions (account_id, amount, type, reference) VALUES (?, ?, ?, ?)').run(buyerAccountId, -game.price, 'game_buy', gameId);
+    if (game.creatorId) {
+      db.prepare('UPDATE accounts SET pearl_balance = pearl_balance + ? WHERE id = ?').run(game.price, game.creatorId);
+      db.prepare('INSERT INTO pearl_transactions (account_id, amount, type, reference) VALUES (?, ?, ?, ?)').run(game.creatorId, game.price, 'game_sale', gameId);
+    }
+    db.prepare('INSERT INTO game_purchases (account_id, game_id) VALUES (?, ?)').run(buyerAccountId, gameId);
+  });
+  txn();
+  return { ok: true };
+}
+
+export function canAccessGame(accountId, gameId) {
+  const game = getGame(gameId);
+  if (!game) return false;
+  if (game.creatorId === accountId) return true;
+  return !!db.prepare('SELECT 1 FROM game_purchases WHERE account_id = ? AND game_id = ?').get(accountId, gameId);
+}
+
+export function acquireFreeGame(accountId, gameId) {
+  const game = getGame(gameId);
+  if (!game) return { ok: false, error: 'Game not found' };
+  if (game.price > 0) return { ok: false, error: 'This game is not free' };
+  if (game.creatorId === accountId) return { ok: false, error: 'You created this game — you already own it' };
+  db.prepare('INSERT OR IGNORE INTO game_purchases (account_id, game_id) VALUES (?, ?)').run(accountId, gameId);
+  return { ok: true };
+}
+
+export function getPurchasedGames(accountId) {
+  return db.prepare('SELECT game_id FROM game_purchases WHERE account_id = ?').all(accountId).map(r => r.game_id);
 }
 
 // --- Stripe Connect (seller cash-out) ---

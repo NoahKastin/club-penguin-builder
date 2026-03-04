@@ -161,6 +161,28 @@ function RoomPreview({ room, catalogItems }) {
           border: '1px solid #555',
         }}>
           {(room.items || []).map((item, i) => {
+            if (item.gameId) {
+              return (
+                <div
+                  key={i}
+                  style={{
+                    position: 'absolute',
+                    left: item.x * scale,
+                    top: item.y * scale,
+                    width: item.width * scale,
+                    height: item.height * scale,
+                    border: '2px dashed #6a9f4a',
+                    background: 'rgba(106, 159, 74, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: `${Math.max(8, 10 * scale)}px`,
+                    color: '#6a9f4a',
+                    pointerEvents: 'none',
+                  }}
+                >Game</div>
+              );
+            }
             const ci = catMap[item.catalogId];
             if (!ci) return null;
             const rot = item.rotation || 0;
@@ -228,9 +250,17 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
   const [favorites, setFavorites] = useState(new Set());
   const [catalogSearch, setCatalogSearch] = useState('');
   const [acquiredItems, setAcquiredItems] = useState(new Set());
+  const [availableGames, setAvailableGames] = useState([]);
+  const [acquiredGames, setAcquiredGames] = useState(new Set());
+  const [exportingRoom, setExportingRoom] = useState(null); // roomIndex being exported
+  const [exportName, setExportName] = useState('');
+  const [exportPrice, setExportPrice] = useState(0);
+  const [exportError, setExportError] = useState('');
+  const [exportSuccess, setExportSuccess] = useState('');
 
   useEffect(() => {
     fetch('/api/catalog').then(r => r.json()).then(setCatalogItems).catch(() => {});
+    fetch('/api/games').then(r => r.json()).then(setAvailableGames).catch(() => {});
     if (authToken) {
       fetch('/api/auth/preferences', { headers: { Authorization: `Bearer ${authToken}` } })
         .then(r => r.ok ? r.json() : null)
@@ -246,6 +276,9 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
       fetch('/api/account/purchases', { headers: { Authorization: `Bearer ${authToken}` } })
         .then(r => r.ok ? r.json() : [])
         .then(ids => setAcquiredItems(new Set(ids)));
+      fetch('/api/account/game-purchases', { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.ok ? r.json() : [])
+        .then(ids => setAcquiredGames(new Set(ids)));
     }
   }, []);
 
@@ -269,7 +302,10 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
             width: e.width,
             height: e.height,
           })),
-          items: (r.items || []).map(item => ({ ...item, rotation: item.rotation || 0 })),
+          items: (r.items || []).map(item => item.gameId
+            ? { gameId: item.gameId, x: item.x, y: item.y, width: item.width, height: item.height }
+            : { ...item, rotation: item.rotation || 0 }
+          ),
         }));
         // Update roomCounter to avoid collisions
         for (const r of roomList) {
@@ -400,6 +436,101 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
     });
   }
 
+  function canExportRoom(room) {
+    if (!room.items || room.items.length === 0) return false;
+    // Only regular items (not game placements) can be exported
+    const regularItems = room.items.filter(i => !i.gameId);
+    if (regularItems.length === 0) return false;
+    // All items must be the current user's own uploads
+    for (const item of regularItems) {
+      const ci = catalogItems.find(c => c.id === item.catalogId);
+      if (!ci || ci.uploaderId !== accountId) return false;
+    }
+    return true;
+  }
+
+  function handleExport(roomIndex) {
+    setExportError('');
+    setExportSuccess('');
+    if (!exportName.trim()) { setExportError('Name is required'); return; }
+
+    const room = rooms[roomIndex];
+    const regularItems = room.items.filter(i => !i.gameId);
+
+    // Compute bounding box
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const item of regularItems) {
+      minX = Math.min(minX, item.x);
+      minY = Math.min(minY, item.y);
+      maxX = Math.max(maxX, item.x + item.width);
+      maxY = Math.max(maxY, item.y + item.height);
+    }
+    const gameWidth = maxX - minX;
+    const gameHeight = maxY - minY;
+
+    // Translate items relative to bounding box origin
+    const gameItems = regularItems.map(item => ({
+      catalogId: item.catalogId,
+      x: item.x - minX,
+      y: item.y - minY,
+      width: item.width,
+      height: item.height,
+      rotation: item.rotation || 0,
+      behavior: item.behavior || null,
+      blocksMovement: !!item.blocksMovement,
+      skid: !!item.skid,
+      gravity: !!item.gravity,
+      wearOffsetX: item.wearOffsetX || 0,
+      wearOffsetY: item.wearOffsetY || 0,
+      wearWidth: item.wearWidth || 40,
+      wearHeight: item.wearHeight || 40,
+    }));
+
+    fetch('/api/games/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({
+        name: exportName.trim(),
+        items: gameItems,
+        width: gameWidth,
+        height: gameHeight,
+        gravityDirection: room.gravityDirection || null,
+        price: exportPrice || 0,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { setExportError(data.error); return; }
+        setExportSuccess(`Game "${exportName.trim()}" exported!`);
+        setExportName('');
+        setExportPrice(0);
+        setExportingRoom(null);
+        // Refresh available games
+        fetch('/api/games').then(r => r.json()).then(setAvailableGames).catch(() => {});
+      })
+      .catch(() => setExportError('Export failed'));
+  }
+
+  function ownedGames() {
+    return availableGames.filter(g =>
+      g.creatorId === accountId || acquiredGames.has(g.id)
+    );
+  }
+
+  function addGame(roomIndex) {
+    const owned = ownedGames();
+    if (owned.length === 0) return;
+    const updated = [...rooms];
+    const game = owned[0];
+    updated[roomIndex] = {
+      ...updated[roomIndex],
+      items: [...updated[roomIndex].items, {
+        gameId: game.id, x: 100, y: 100, width: game.width, height: game.height,
+      }],
+    };
+    setRooms(updated);
+  }
+
   function handleSubmit() {
     setError('');
     if (!cpName.trim()) {
@@ -433,6 +564,9 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
           height: e.height,
         })),
         items: (room.items || []).map(item => {
+          if (item.gameId) {
+            return { gameId: item.gameId, x: item.x, y: item.y, width: item.width, height: item.height };
+          }
           const base = { catalogId: item.catalogId, x: item.x, y: item.y, width: item.width, height: item.height, rotation: item.rotation || 0, behavior: item.behavior, blocksMovement: !!item.blocksMovement, skid: !!item.skid, gravity: !!item.gravity };
           if (item.behavior === 'collectible') {
             base.wearOffsetX = item.wearOffsetX || 0;
@@ -583,77 +717,123 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
           <div style={{ fontSize: '0.9rem', color: '#aaa', marginTop: '4px' }}>Items</div>
           {(room.items || []).map((item, ii) => (
             <div key={ii} style={styles.exitCard}>
-              <div style={styles.row}>
-                <label style={styles.label}>Item:</label>
-                <select
-                  style={{ ...styles.select, flex: 1 }}
-                  value={item.catalogId}
-                  onChange={(e) => updateItem(ri, ii, 'catalogId', e.target.value)}
-                >
-                  {sortedCatalog.length === 0
-                    ? <option value="">{catalogItems.length === 0 ? 'No items in catalog' : 'No items acquired — visit the Catalog'}</option>
-                    : sortedCatalog.map(ci => (
-                      <option key={ci.id} value={ci.id}>{favorites.has(ci.id) ? '\u2605 ' : ''}{ci.name}</option>
-                    ))}
-                </select>
-                {ii > 0 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, -1)} title="Move up (renders behind)">{'\u25B2'}</button>}
-                {ii < (room.items || []).length - 1 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, 1)} title="Move down (renders in front)">{'\u25BC'}</button>}
-                <button style={styles.dangerButton} onClick={() => removeItem(ri, ii)}>X</button>
-              </div>
-              <div style={styles.row}>
-                <label style={styles.label}>Behavior:</label>
-                <select
-                  style={styles.select}
-                  value={item.behavior || ''}
-                  onChange={(e) => updateItem(ri, ii, 'behavior', e.target.value || null)}
-                >
-                  <option value="">None</option>
-                  <option value="collectible">Collectible</option>
-                  <option value="draggable">Draggable (resets)</option>
-                  <option value="draggable-persist">Draggable (persists)</option>
-                </select>
-                <label style={{ ...styles.label, marginLeft: '12px' }}>
-                  <input type="checkbox" checked={!!item.blocksMovement} onChange={(e) => updateItem(ri, ii, 'blocksMovement', e.target.checked)} />
-                  {' '}Blocks movement
-                </label>
-                <label style={{ ...styles.label, marginLeft: '12px' }}>
-                  <input type="checkbox" checked={!!item.skid} onChange={(e) => updateItem(ri, ii, 'skid', e.target.checked)} />
-                  {' '}Skids
-                </label>
-                <label style={{ ...styles.label, marginLeft: '12px' }}>
-                  <input type="checkbox" checked={!!item.gravity} onChange={(e) => updateItem(ri, ii, 'gravity', e.target.checked)} />
-                  {' '}Gravity
-                </label>
-              </div>
-              <div style={styles.row}>
-                <label style={styles.label}>x</label>
-                <input style={styles.smallInput} type="number" value={item.x} onChange={(e) => updateItem(ri, ii, 'x', e.target.value)} />
-                <label style={styles.label}>y</label>
-                <input style={styles.smallInput} type="number" value={item.y} onChange={(e) => updateItem(ri, ii, 'y', e.target.value)} />
-                <label style={styles.label}>w</label>
-                <input style={styles.smallInput} type="number" value={item.width} onChange={(e) => updateItem(ri, ii, 'width', e.target.value)} />
-                <label style={styles.label}>h</label>
-                <input style={styles.smallInput} type="number" value={item.height} onChange={(e) => updateItem(ri, ii, 'height', e.target.value)} />
-                <label style={styles.label}>rot</label>
-                <input style={styles.smallInput} type="number" value={item.rotation || 0} onChange={(e) => updateItem(ri, ii, 'rotation', e.target.value)} title="Rotation in degrees" />
-              </div>
-              {item.behavior === 'collectible' && (
-                <div style={styles.row}>
-                  <label style={styles.label}>Wear:</label>
-                  <label style={styles.label}>offX</label>
-                  <input style={{ ...styles.smallInput, width: '80px' }} type="text" inputMode="numeric" value={item.wearOffsetX} onChange={(e) => { const v = e.target.value; if (v === '' || v === '-' || !isNaN(Number(v))) updateItem(ri, ii, 'wearOffsetX', v === '' || v === '-' ? v : Number(v)); }} onBlur={(e) => updateItem(ri, ii, 'wearOffsetX', Number(e.target.value) || 0)} />
-                  <label style={styles.label}>offY</label>
-                  <input style={{ ...styles.smallInput, width: '80px' }} type="text" inputMode="numeric" value={item.wearOffsetY} onChange={(e) => { const v = e.target.value; if (v === '' || v === '-' || !isNaN(Number(v))) updateItem(ri, ii, 'wearOffsetY', v === '' || v === '-' ? v : Number(v)); }} onBlur={(e) => updateItem(ri, ii, 'wearOffsetY', Number(e.target.value) || 0)} />
-                  <label style={styles.label}>w</label>
-                  <input style={styles.smallInput} type="number" value={item.wearWidth} onChange={(e) => updateItem(ri, ii, 'wearWidth', e.target.value)} />
-                  <label style={styles.label}>h</label>
-                  <input style={styles.smallInput} type="number" value={item.wearHeight} onChange={(e) => updateItem(ri, ii, 'wearHeight', e.target.value)} />
-                </div>
+              {item.gameId ? (
+                <>
+                  <div style={styles.row}>
+                    <label style={styles.label}>Game:</label>
+                    <select
+                      style={{ ...styles.select, flex: 1 }}
+                      value={item.gameId}
+                      onChange={(e) => {
+                        const game = availableGames.find(g => g.id === e.target.value);
+                        if (game) {
+                          updateItem(ri, ii, 'gameId', e.target.value);
+                          // Update default dimensions to match new game
+                          const items = [...rooms[ri].items];
+                          items[ii] = { ...items[ii], gameId: e.target.value, width: game.width, height: game.height };
+                          const updated = [...rooms];
+                          updated[ri] = { ...updated[ri], items };
+                          setRooms(updated);
+                        }
+                      }}
+                    >
+                      {ownedGames().map(g => (
+                        <option key={g.id} value={g.id}>{g.name} ({g.items.length} items)</option>
+                      ))}
+                    </select>
+                    {ii > 0 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, -1)} title="Move up">{'\u25B2'}</button>}
+                    {ii < (room.items || []).length - 1 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, 1)} title="Move down">{'\u25BC'}</button>}
+                    <button style={styles.dangerButton} onClick={() => removeItem(ri, ii)}>X</button>
+                  </div>
+                  <div style={styles.row}>
+                    <label style={styles.label}>x</label>
+                    <input style={styles.smallInput} type="number" value={item.x} onChange={(e) => updateItem(ri, ii, 'x', e.target.value)} />
+                    <label style={styles.label}>y</label>
+                    <input style={styles.smallInput} type="number" value={item.y} onChange={(e) => updateItem(ri, ii, 'y', e.target.value)} />
+                    <label style={styles.label}>w</label>
+                    <input style={styles.smallInput} type="number" value={item.width} onChange={(e) => updateItem(ri, ii, 'width', e.target.value)} />
+                    <label style={styles.label}>h</label>
+                    <input style={styles.smallInput} type="number" value={item.height} onChange={(e) => updateItem(ri, ii, 'height', e.target.value)} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={styles.row}>
+                    <label style={styles.label}>Item:</label>
+                    <select
+                      style={{ ...styles.select, flex: 1 }}
+                      value={item.catalogId}
+                      onChange={(e) => updateItem(ri, ii, 'catalogId', e.target.value)}
+                    >
+                      {sortedCatalog.length === 0
+                        ? <option value="">{catalogItems.length === 0 ? 'No items in catalog' : 'No items acquired — visit the Catalog'}</option>
+                        : sortedCatalog.map(ci => (
+                          <option key={ci.id} value={ci.id}>{favorites.has(ci.id) ? '\u2605 ' : ''}{ci.name}</option>
+                        ))}
+                    </select>
+                    {ii > 0 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, -1)} title="Move up (renders behind)">{'\u25B2'}</button>}
+                    {ii < (room.items || []).length - 1 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, 1)} title="Move down (renders in front)">{'\u25BC'}</button>}
+                    <button style={styles.dangerButton} onClick={() => removeItem(ri, ii)}>X</button>
+                  </div>
+                  <div style={styles.row}>
+                    <label style={styles.label}>Behavior:</label>
+                    <select
+                      style={styles.select}
+                      value={item.behavior || ''}
+                      onChange={(e) => updateItem(ri, ii, 'behavior', e.target.value || null)}
+                    >
+                      <option value="">None</option>
+                      <option value="collectible">Collectible</option>
+                      <option value="draggable">Draggable (resets)</option>
+                      <option value="draggable-persist">Draggable (persists)</option>
+                    </select>
+                    <label style={{ ...styles.label, marginLeft: '12px' }}>
+                      <input type="checkbox" checked={!!item.blocksMovement} onChange={(e) => updateItem(ri, ii, 'blocksMovement', e.target.checked)} />
+                      {' '}Blocks movement
+                    </label>
+                    <label style={{ ...styles.label, marginLeft: '12px' }}>
+                      <input type="checkbox" checked={!!item.skid} onChange={(e) => updateItem(ri, ii, 'skid', e.target.checked)} />
+                      {' '}Skids
+                    </label>
+                    <label style={{ ...styles.label, marginLeft: '12px' }}>
+                      <input type="checkbox" checked={!!item.gravity} onChange={(e) => updateItem(ri, ii, 'gravity', e.target.checked)} />
+                      {' '}Gravity
+                    </label>
+                  </div>
+                  <div style={styles.row}>
+                    <label style={styles.label}>x</label>
+                    <input style={styles.smallInput} type="number" value={item.x} onChange={(e) => updateItem(ri, ii, 'x', e.target.value)} />
+                    <label style={styles.label}>y</label>
+                    <input style={styles.smallInput} type="number" value={item.y} onChange={(e) => updateItem(ri, ii, 'y', e.target.value)} />
+                    <label style={styles.label}>w</label>
+                    <input style={styles.smallInput} type="number" value={item.width} onChange={(e) => updateItem(ri, ii, 'width', e.target.value)} />
+                    <label style={styles.label}>h</label>
+                    <input style={styles.smallInput} type="number" value={item.height} onChange={(e) => updateItem(ri, ii, 'height', e.target.value)} />
+                    <label style={styles.label}>rot</label>
+                    <input style={styles.smallInput} type="number" value={item.rotation || 0} onChange={(e) => updateItem(ri, ii, 'rotation', e.target.value)} title="Rotation in degrees" />
+                  </div>
+                  {item.behavior === 'collectible' && (
+                    <div style={styles.row}>
+                      <label style={styles.label}>Wear:</label>
+                      <label style={styles.label}>offX</label>
+                      <input style={{ ...styles.smallInput, width: '80px' }} type="text" inputMode="numeric" value={item.wearOffsetX} onChange={(e) => { const v = e.target.value; if (v === '' || v === '-' || !isNaN(Number(v))) updateItem(ri, ii, 'wearOffsetX', v === '' || v === '-' ? v : Number(v)); }} onBlur={(e) => updateItem(ri, ii, 'wearOffsetX', Number(e.target.value) || 0)} />
+                      <label style={styles.label}>offY</label>
+                      <input style={{ ...styles.smallInput, width: '80px' }} type="text" inputMode="numeric" value={item.wearOffsetY} onChange={(e) => { const v = e.target.value; if (v === '' || v === '-' || !isNaN(Number(v))) updateItem(ri, ii, 'wearOffsetY', v === '' || v === '-' ? v : Number(v)); }} onBlur={(e) => updateItem(ri, ii, 'wearOffsetY', Number(e.target.value) || 0)} />
+                      <label style={styles.label}>w</label>
+                      <input style={styles.smallInput} type="number" value={item.wearWidth} onChange={(e) => updateItem(ri, ii, 'wearWidth', e.target.value)} />
+                      <label style={styles.label}>h</label>
+                      <input style={styles.smallInput} type="number" value={item.wearHeight} onChange={(e) => updateItem(ri, ii, 'wearHeight', e.target.value)} />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}
           <div style={styles.row}>
             <button style={styles.smallButton} onClick={() => addItem(ri)}>+ Add Item</button>
+            {ownedGames().length > 0 && (
+              <button style={styles.smallButton} onClick={() => addGame(ri)}>+ Add Game</button>
+            )}
             <label style={styles.label}>Beginning with:</label>
             <input
               style={{ ...styles.smallInput, width: '120px' }}
@@ -663,6 +843,35 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
               onChange={(e) => setCatalogSearch(e.target.value)}
             />
           </div>
+
+          {canExportRoom(room) && (
+            exportingRoom === ri ? (
+              <div style={{ ...styles.exitCard, marginTop: '4px' }}>
+                <strong style={{ fontSize: '0.85rem' }}>Export as Game</strong>
+                <div style={styles.row}>
+                  <label style={styles.label}>Name:</label>
+                  <input style={{ ...styles.smallInput, width: '160px' }} type="text" value={exportName} onChange={(e) => setExportName(e.target.value)} maxLength={40} placeholder="Game name..." />
+                </div>
+                <div style={styles.row}>
+                  <label style={styles.label}>Price (Pearls):</label>
+                  <input style={{ ...styles.smallInput, width: '80px' }} type="number" min="0" value={exportPrice} onChange={(e) => setExportPrice(Math.max(0, Math.floor(Number(e.target.value) || 0)))} />
+                </div>
+                {exportError && <div style={styles.error}>{exportError}</div>}
+                {exportSuccess && <div style={{ color: '#6bff6b', fontSize: '0.85rem' }}>{exportSuccess}</div>}
+                <div style={styles.row}>
+                  <button style={styles.smallButton} onClick={() => handleExport(ri)}>Export</button>
+                  <button style={{ ...styles.smallButton, background: '#666' }} onClick={() => { setExportingRoom(null); setExportError(''); setExportSuccess(''); }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <button
+                style={{ ...styles.smallButton, background: '#6a9f4a', marginTop: '4px' }}
+                onClick={() => { setExportingRoom(ri); setExportName(''); setExportPrice(0); setExportError(''); setExportSuccess(''); }}
+              >
+                Export as Game
+              </button>
+            )
+          )}
 
           <RoomPreview room={room} catalogItems={catalogItems} />
         </div>

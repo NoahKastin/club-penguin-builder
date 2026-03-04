@@ -10,12 +10,14 @@ import { getClubPenguin, createClubPenguin, updateClubPenguin, updateRoomItemPos
 import { createAccount, login, getAccount, createSession, getSession, deleteSession, updateAttributionName } from './accounts.js';
 import { launchParty, getPartyLog } from './parties.js';
 import { createCatalogItem, getCatalogItem, listCatalogItems, catalogItemExistsByName } from './catalog.js';
+import { createGame, getGame, listGames, gameExistsByName } from './games.js';
 import { loadInventory, saveInventoryItem, setEquipped } from './inventory.js';
 import { moderateUpload } from './moderation.js';
 import {
   isStripeEnabled, getBundles, createCheckoutSession, handleWebhook,
   getBalance, getTransactions, purchaseItem, canAccessItem, getPurchasedItems,
   acquireFreeItem, createConnectAccount, createOnboardingLink, getConnectStatus, cashOut,
+  purchaseGame, canAccessGame, acquireFreeGame, getPurchasedGames,
 } from './payments.js';
 import {
   addPenguin,
@@ -442,6 +444,74 @@ app.post('/api/catalog', async (req, res) => {
   res.json(item);
 });
 
+// Game endpoints
+app.get('/api/games', (req, res) => {
+  res.json(listGames());
+});
+
+app.get('/api/games/:id', (req, res) => {
+  const game = getGame(req.params.id);
+  if (!game) return res.status(404).json({ error: 'Not found' });
+  res.json(game);
+});
+
+app.post('/api/games/upload', express.json({ limit: '50kb' }), (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = token ? getSession(token) : null;
+  if (!accountId) return res.status(401).json({ error: 'Login required' });
+
+  const { name, items, width, height, gravityDirection, price } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+  if (!items || !Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Game must have at least one item' });
+  if (!width || !height || width <= 0 || height <= 0) return res.status(400).json({ error: 'Invalid game dimensions' });
+
+  if (gameExistsByName(name.trim())) return res.status(400).json({ error: 'A game with that name already exists' });
+
+  // Validate all items use creator's own uploads
+  for (const item of items) {
+    const catItem = getCatalogItem(item.catalogId);
+    if (!catItem) return res.status(400).json({ error: `Item ${item.catalogId} not found in catalog` });
+    if (catItem.uploaderId !== accountId) return res.status(400).json({ error: `Item "${catItem.name}" was uploaded by someone else — games can only use your own uploads` });
+  }
+
+  const account = getAccount(accountId);
+  const attribution = account?.attribution_name || account?.username || '';
+  const game = createGame(name.trim(), items, width, height, gravityDirection || null, accountId, attribution, price || 0);
+  res.json({ success: true, game });
+});
+
+app.post('/api/games/:id/purchase', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = token ? getSession(token) : null;
+  if (!accountId) return res.status(401).json({ error: 'Login required' });
+  const result = purchaseGame(accountId, req.params.id);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  res.json({ success: true, pearls: getBalance(accountId) });
+});
+
+app.post('/api/games/:id/acquire', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = token ? getSession(token) : null;
+  if (!accountId) return res.status(401).json({ error: 'Login required' });
+  const result = acquireFreeGame(accountId, req.params.id);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  res.json({ success: true });
+});
+
+app.get('/api/games/:id/access', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = token ? getSession(token) : null;
+  if (!accountId) return res.json({ access: false });
+  res.json({ access: canAccessGame(accountId, req.params.id) });
+});
+
+app.get('/api/account/game-purchases', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const accountId = token ? getSession(token) : null;
+  if (!accountId) return res.status(401).json({ error: 'Login required' });
+  res.json(getPurchasedGames(accountId));
+});
+
 // Parse image dimensions from buffer (supports PNG and JPEG headers)
 function getImageDimensions(buf) {
   // PNG: bytes 16-23 contain width and height as 4-byte big-endian integers
@@ -475,12 +545,46 @@ function cpSummary(cpId) {
   return { id: cp.id, name: cp.name, roomCount: Object.keys(cp.rooms).length, penguinCount: getPenguinCountForCP(cpId), creatorId: cp.creatorId || null };
 }
 
-// Resolve catalog item images for a room's items
-function resolveCatalogItems(room) {
-  if (!room.items || room.items.length === 0) return {};
-  const catalogItems = {};
+// Expand game entries in a room's items array into individual items.
+// Each game entry becomes N items with gameGroup, scaled/translated to the game's placement rect.
+// Returns a new items array with games expanded, plus a mapping for catalog resolution.
+function expandRoomItems(room) {
+  if (!room.items || room.items.length === 0) return [];
+  const expanded = [];
   for (const item of room.items) {
-    if (!catalogItems[item.catalogId]) {
+    if (item.gameId) {
+      const game = getGame(item.gameId);
+      if (!game) continue;
+      const sx = item.width / game.width;
+      const sy = item.height / game.height;
+      // Unique group key per placement (same game placed twice = two groups)
+      const groupKey = item.gameId + ':' + expanded.length;
+      for (const gi of game.items) {
+        expanded.push({
+          ...gi,
+          x: item.x + gi.x * sx,
+          y: item.y + gi.y * sy,
+          width: gi.width * sx,
+          height: gi.height * sy,
+          gameGroup: groupKey,
+          gameBounds: { x: item.x, y: item.y, w: item.width, h: item.height },
+          gameGravityDirection: game.gravityDirection,
+        });
+      }
+    } else {
+      expanded.push(item);
+    }
+  }
+  return expanded;
+}
+
+// Resolve catalog item images for a room's items (including expanded game items)
+function resolveCatalogItems(room, expandedItems) {
+  const items = expandedItems || room.items || [];
+  if (items.length === 0) return {};
+  const catalogItems = {};
+  for (const item of items) {
+    if (item.catalogId && !catalogItems[item.catalogId]) {
       const catItem = getCatalogItem(item.catalogId);
       if (catItem) {
         catalogItems[item.catalogId] = { name: catItem.name, image: catItem.image };
@@ -509,6 +613,7 @@ const uploadBans = new Map(); // accountId → ban expiry timestamp
 const chatRateLimits = new Map();
 
 // Resolve current item positions for a room (accounting for drag overrides)
+// Uses expanded items (games already exploded into individual items).
 function resolveRoomItems(room, cpId, roomId) {
   const dragOverrides = getDragOverrides(cpId, roomId);
   return room.items.map((i, idx) => {
@@ -521,53 +626,76 @@ function resolveRoomItems(room, cpId, roomId) {
       skid: i.skid,
       gravity: i.gravity,
       behavior: i.behavior,
+      gameGroup: i.gameGroup || null,
+      gameBounds: i.gameBounds || null,
+      gameGravityDirection: i.gameGravityDirection || null,
       idx,
     };
   });
 }
 
 // Settle all gravity items in a room. Sorts by proximity to gravity floor
-// so items stack correctly. Returns array of {itemIndex, startX, startY} for broadcasting.
+// so items stack correctly. Groups by gameGroup for scoped physics.
 function settleGravityItems(cpId, roomId, room) {
-  const direction = room.gravityDirection || 'down';
   const resolved = resolveRoomItems(room, cpId, roomId);
   const gravityItems = resolved.filter(i => i.gravity);
   if (gravityItems.length === 0) return [];
 
-  // Sort by proximity to gravity "floor" (items closest to floor settle first)
-  gravityItems.sort((a, b) => {
-    switch (direction) {
-      case 'down': return (b.y + b.h) - (a.y + a.h); // bottom-most first
-      case 'up': return a.y - b.y; // top-most first
-      case 'right': return (b.x + b.w) - (a.x + a.w);
-      case 'left': return a.x - b.x;
-      case 'center': {
-        const distA = Math.sqrt((a.x + a.w / 2 - 400) ** 2 + (a.y + a.h / 2 - 300) ** 2);
-        const distB = Math.sqrt((b.x + b.w / 2 - 400) ** 2 + (b.y + b.h / 2 - 300) ** 2);
-        return distA - distB; // closest to center first
-      }
-      default: return 0;
-    }
-  });
+  // Group items by gameGroup (null = room-level items)
+  const groups = new Map();
+  for (const item of gravityItems) {
+    const key = item.gameGroup || '__room__';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
 
   const events = [];
-  for (const item of gravityItems) {
-    // Rebuild blockers each iteration (previous items may have settled into new positions)
-    const currentResolved = resolveRoomItems(room, cpId, roomId);
-    const blockers = currentResolved
-      .filter(i => i.blocksMovement && i.idx !== item.idx)
-      .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
 
-    const frames = simulateGravity(item.x, item.y, item.w, item.h, direction, blockers);
-    const finalPos = frames[frames.length - 1];
+  for (const [groupKey, items] of groups) {
+    // Determine gravity direction and bounds for this group
+    const isGame = groupKey !== '__room__';
+    const direction = isGame ? (items[0].gameGravityDirection || 'down') : (room.gravityDirection || 'down');
+    const boundsX = isGame && items[0].gameBounds ? items[0].gameBounds.x : 0;
+    const boundsY = isGame && items[0].gameBounds ? items[0].gameBounds.y : 0;
+    const boundsW = isGame && items[0].gameBounds ? items[0].gameBounds.w : 800;
+    const boundsH = isGame && items[0].gameBounds ? items[0].gameBounds.h : 600;
 
-    // Only broadcast/store if the item actually moved
-    if (Math.abs(finalPos.x - item.x) > 0.5 || Math.abs(finalPos.y - item.y) > 0.5) {
-      setItemPosition(cpId, roomId, item.idx, finalPos.x, finalPos.y);
-      if (room.items[item.idx].behavior === 'draggable-persist') {
-        updateRoomItemPosition(cpId, roomId, item.idx, finalPos.x, finalPos.y);
+    // Sort by proximity to gravity "floor" (items closest to floor settle first)
+    items.sort((a, b) => {
+      switch (direction) {
+        case 'down': return (b.y + b.h) - (a.y + a.h);
+        case 'up': return a.y - b.y;
+        case 'right': return (b.x + b.w) - (a.x + a.w);
+        case 'left': return a.x - b.x;
+        case 'center': {
+          const cx = boundsX + boundsW / 2;
+          const cy = boundsY + boundsH / 2;
+          const distA = Math.sqrt((a.x + a.w / 2 - cx) ** 2 + (a.y + a.h / 2 - cy) ** 2);
+          const distB = Math.sqrt((b.x + b.w / 2 - cx) ** 2 + (b.y + b.h / 2 - cy) ** 2);
+          return distA - distB;
+        }
+        default: return 0;
       }
-      events.push({ itemIndex: item.idx, startX: item.x, startY: item.y, direction });
+    });
+
+    for (const item of items) {
+      // Rebuild blockers each iteration — scoped to same gameGroup
+      const currentResolved = resolveRoomItems(room, cpId, roomId);
+      const blockers = currentResolved
+        .filter(i => i.blocksMovement && i.idx !== item.idx && i.gameGroup === item.gameGroup)
+        .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
+
+      const frames = simulateGravity(item.x, item.y, item.w, item.h, direction, blockers, boundsW, boundsH, boundsX, boundsY);
+      const finalPos = frames[frames.length - 1];
+
+      if (Math.abs(finalPos.x - item.x) > 0.5 || Math.abs(finalPos.y - item.y) > 0.5) {
+        setItemPosition(cpId, roomId, item.idx, finalPos.x, finalPos.y);
+        // Only persist for non-game draggable-persist items
+        if (!item.gameGroup && room.items[item.idx]?.behavior === 'draggable-persist') {
+          updateRoomItemPosition(cpId, roomId, item.idx, finalPos.x, finalPos.y);
+        }
+        events.push({ itemIndex: item.idx, startX: item.x, startY: item.y, direction });
+      }
     }
   }
   return events;
@@ -575,22 +703,30 @@ function settleGravityItems(cpId, roomId, room) {
 
 // Run gravity on a single item and broadcast. Returns final position or null if no movement.
 function applyGravityToItem(cpId, roomId, room, itemIndex) {
-  const direction = room.gravityDirection || 'down';
   const resolved = resolveRoomItems(room, cpId, roomId);
   const item = resolved[itemIndex];
   if (!item || !item.gravity) return null;
 
+  // Use game gravity direction and bounds if this is a game item
+  const isGame = !!item.gameGroup;
+  const direction = isGame ? (item.gameGravityDirection || 'down') : (room.gravityDirection || 'down');
+  const boundsX = isGame && item.gameBounds ? item.gameBounds.x : 0;
+  const boundsY = isGame && item.gameBounds ? item.gameBounds.y : 0;
+  const boundsW = isGame && item.gameBounds ? item.gameBounds.w : 800;
+  const boundsH = isGame && item.gameBounds ? item.gameBounds.h : 600;
+
+  // Scope blockers to same gameGroup
   const blockers = resolved
-    .filter(i => i.blocksMovement && i.idx !== itemIndex)
+    .filter(i => i.blocksMovement && i.idx !== itemIndex && i.gameGroup === item.gameGroup)
     .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
 
-  const frames = simulateGravity(item.x, item.y, item.w, item.h, direction, blockers);
+  const frames = simulateGravity(item.x, item.y, item.w, item.h, direction, blockers, boundsW, boundsH, boundsX, boundsY);
   const finalPos = frames[frames.length - 1];
 
   if (Math.abs(finalPos.x - item.x) < 0.5 && Math.abs(finalPos.y - item.y) < 0.5) return null;
 
   setItemPosition(cpId, roomId, itemIndex, finalPos.x, finalPos.y);
-  if (room.items[itemIndex].behavior === 'draggable-persist') {
+  if (!isGame && room.items[itemIndex]?.behavior === 'draggable-persist') {
     updateRoomItemPosition(cpId, roomId, itemIndex, finalPos.x, finalPos.y);
   }
   return { itemIndex, startX: item.x, startY: item.y, direction };
@@ -646,17 +782,19 @@ io.on('connection', (socket) => {
     }
 
     const room = cp.rooms[penguin.roomId];
+    const expandedItems = expandRoomItems(room);
+    const expandedRoom = { ...room, items: expandedItems };
 
     // Settle gravity items before sending room state
-    if (room && room.items) {
-      settleGravityItems(cpId, penguin.roomId, room);
+    if (expandedItems.length > 0) {
+      settleGravityItems(cpId, penguin.roomId, expandedRoom);
     }
 
     socket.emit('roomState', {
-      room,
+      room: expandedRoom,
       penguins: getPenguinsInCPRoom(cpId, penguin.roomId),
       you: penguin.id,
-      catalogItems: resolveCatalogItems(room),
+      catalogItems: resolveCatalogItems(room, expandedItems),
       inventory: penguin.inventory,
       clothes: penguin.clothes,
       dragOverrides: getDragOverrides(cpId, penguin.roomId),
@@ -677,17 +815,18 @@ io.on('connection', (socket) => {
     if (cp) {
       const room = cp.rooms[penguin.roomId];
       if (room && room.items) {
-        const dragOverrides = getDragOverrides(penguin.cpId, penguin.roomId);
-
-        // Resolve current item positions (accounting for drag overrides)
-        const resolvedItems = resolveRoomItems(room, penguin.cpId, penguin.roomId);
+        // Use expanded items (games exploded into individual items) for physics
+        const expandedItems = expandRoomItems(room);
+        const expandedRoom = { ...room, items: expandedItems };
+        const resolvedItems = resolveRoomItems(expandedRoom, penguin.cpId, penguin.roomId);
 
         // Save original target for skid detection (before blocker adjustment)
         const origX = x;
         const origY = y;
 
-        // Apply collision with blocking items (excluding skid-only items — they move out of the way)
-        const blockers = resolvedItems.filter(i => i.blocksMovement);
+        // Apply collision with blocking items — only non-game items block penguins
+        // (penguins walk freely through game areas, game blockers only affect game items)
+        const blockers = resolvedItems.filter(i => i.blocksMovement && !i.gameGroup);
         if (blockers.length > 0) {
           const adjusted = adjustMoveTarget(penguin.x, penguin.y, x, y, blockers);
           x = adjusted.x;
@@ -711,17 +850,24 @@ io.on('connection', (socket) => {
             const vx = dirX * speed / 60; // per-frame velocity
             const vy = dirY * speed / 60;
 
-            // Get blockers for the skid sim (exclude this item itself)
+            // Get blockers for the skid sim — scoped by gameGroup
             const skidBlockers = resolvedItems
-              .filter(i => i.blocksMovement && i.idx !== item.idx)
+              .filter(i => i.blocksMovement && i.idx !== item.idx && i.gameGroup === item.gameGroup)
               .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
 
-            const frames = simulateSkid(item.x, item.y, item.w, item.h, vx, vy, skidBlockers);
+            // Use game bounds for game items, room bounds for room items
+            const boundsW = item.gameBounds ? item.gameBounds.w : 800;
+            const boundsH = item.gameBounds ? item.gameBounds.h : 600;
+            const boundsX = item.gameBounds ? item.gameBounds.x : 0;
+            const boundsY = item.gameBounds ? item.gameBounds.y : 0;
+
+            const frames = simulateSkid(item.x, item.y, item.w, item.h, vx, vy, skidBlockers, boundsW, boundsH, boundsX, boundsY);
             const finalPos = frames[frames.length - 1];
 
-            // Store final position
+            // Store final position (use expanded index)
             setItemPosition(penguin.cpId, penguin.roomId, item.idx, finalPos.x, finalPos.y);
-            if (room.items[item.idx].behavior === 'draggable-persist') {
+            // Only persist for non-game draggable-persist items
+            if (!item.gameGroup && expandedItems[item.idx]?.behavior === 'draggable-persist') {
               updateRoomItemPosition(penguin.cpId, penguin.roomId, item.idx, finalPos.x, finalPos.y);
             }
 
@@ -736,8 +882,8 @@ io.on('connection', (socket) => {
             });
 
             // If pushed item has gravity, apply gravity after skid settles
-            if (room.items[item.idx].gravity) {
-              const gravEvent = applyGravityToItem(penguin.cpId, penguin.roomId, room, item.idx);
+            if (expandedItems[item.idx]?.gravity) {
+              const gravEvent = applyGravityToItem(penguin.cpId, penguin.roomId, expandedRoom, item.idx);
               if (gravEvent) {
                 broadcastToCPRoom(penguin.cpId, penguin.roomId, 'itemGravity', gravEvent);
               }
@@ -791,17 +937,19 @@ io.on('connection', (socket) => {
     changePenguinRoom(socket.id, roomId);
 
     const newRoom = cp.rooms[roomId];
+    const expandedItems = expandRoomItems(newRoom);
+    const expandedNewRoom = { ...newRoom, items: expandedItems };
 
     // Settle gravity items before sending room state
-    if (newRoom && newRoom.items) {
-      settleGravityItems(penguin.cpId, roomId, newRoom);
+    if (expandedItems.length > 0) {
+      settleGravityItems(penguin.cpId, roomId, expandedNewRoom);
     }
 
     socket.emit('roomState', {
-      room: newRoom,
+      room: expandedNewRoom,
       penguins: getPenguinsInCPRoom(penguin.cpId, roomId),
       you: penguin.id,
-      catalogItems: resolveCatalogItems(newRoom),
+      catalogItems: resolveCatalogItems(newRoom, expandedItems),
       dragOverrides: getDragOverrides(penguin.cpId, roomId),
     });
 
@@ -909,8 +1057,11 @@ io.on('connection', (socket) => {
     const cp = getClubPenguin(penguin.cpId);
     if (!cp) return;
     const room = cp.rooms[penguin.roomId];
-    if (!room || !room.items || itemIndex < 0 || itemIndex >= room.items.length) return;
-    const item = room.items[itemIndex];
+    if (!room || !room.items) return;
+    // Use expanded items (client sees expanded indices)
+    const expandedItems = expandRoomItems(room);
+    if (itemIndex < 0 || itemIndex >= expandedItems.length) return;
+    const item = expandedItems[itemIndex];
     if (!item.behavior || !item.behavior.startsWith('draggable')) return;
 
     if (!startDrag(penguin.cpId, penguin.roomId, itemIndex, socket.id)) {
@@ -926,8 +1077,20 @@ io.on('connection', (socket) => {
   socket.on('dragMove', ({ itemIndex, x, y }) => {
     const penguin = getPenguin(socket.id);
     if (!penguin) return;
-    x = Math.max(0, Math.min(800, x));
-    y = Math.max(0, Math.min(600, y));
+    const cp = getClubPenguin(penguin.cpId);
+    if (!cp) return;
+    const room = cp.rooms[penguin.roomId];
+    if (!room) return;
+    // Clamp to game bounds or room bounds
+    const expandedItems = expandRoomItems(room);
+    const item = expandedItems[itemIndex];
+    if (item?.gameBounds) {
+      x = Math.max(item.gameBounds.x, Math.min(item.gameBounds.x + item.gameBounds.w, x));
+      y = Math.max(item.gameBounds.y, Math.min(item.gameBounds.y + item.gameBounds.h, y));
+    } else {
+      x = Math.max(0, Math.min(800, x));
+      y = Math.max(0, Math.min(600, y));
+    }
     moveDragItem(penguin.cpId, penguin.roomId, itemIndex, x, y);
     broadcastToCPRoom(penguin.cpId, penguin.roomId, 'itemDragMoved', {
       itemIndex, x, y,
@@ -943,8 +1106,10 @@ io.on('connection', (socket) => {
     const cp = getClubPenguin(penguin.cpId);
     if (cp && entry.x != null && entry.y != null) {
       const room = cp.rooms[penguin.roomId];
-      const item = room && room.items && room.items[itemIndex];
-      if (item && item.behavior === 'draggable-persist') {
+      const expandedItems = expandRoomItems(room);
+      const item = expandedItems[itemIndex];
+      // Only persist for non-game draggable-persist items
+      if (item && !item.gameGroup && item.behavior === 'draggable-persist') {
         updateRoomItemPosition(penguin.cpId, penguin.roomId, itemIndex, entry.x, entry.y);
       }
     }
@@ -958,10 +1123,12 @@ io.on('connection', (socket) => {
     // If released item has gravity, apply gravity from release point
     if (cp) {
       const room = cp.rooms[penguin.roomId];
-      if (room && room.items && room.items[itemIndex] && room.items[itemIndex].gravity) {
-        // Set the release position first so gravity starts from there
+      const expandedItems = expandRoomItems(room);
+      const expandedRoom = { ...room, items: expandedItems };
+      const item = expandedItems[itemIndex];
+      if (item?.gravity) {
         setItemPosition(penguin.cpId, penguin.roomId, itemIndex, entry.x, entry.y);
-        const gravEvent = applyGravityToItem(penguin.cpId, penguin.roomId, room, itemIndex);
+        const gravEvent = applyGravityToItem(penguin.cpId, penguin.roomId, expandedRoom, itemIndex);
         if (gravEvent) {
           broadcastToCPRoom(penguin.cpId, penguin.roomId, 'itemGravity', gravEvent);
         }
@@ -972,7 +1139,14 @@ io.on('connection', (socket) => {
   function validateItemAccess(rooms, accountId) {
     for (const room of Object.values(rooms)) {
       for (const item of (room.items || [])) {
-        if (item.catalogId && !canAccessItem(accountId, item.catalogId)) {
+        if (item.gameId) {
+          // Game placement — check game access
+          if (!canAccessGame(accountId, item.gameId)) {
+            const game = getGame(item.gameId);
+            const label = game ? `"${game.name}"` : item.gameId;
+            return `You don't have access to game ${label} — acquire it from the Catalog first`;
+          }
+        } else if (item.catalogId && !canAccessItem(accountId, item.catalogId)) {
           const cat = getCatalogItem(item.catalogId);
           const label = cat ? `"${cat.name}"` : item.catalogId;
           return `You don't have access to item ${label} — acquire it from the Catalog first`;

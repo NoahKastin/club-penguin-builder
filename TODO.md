@@ -1,5 +1,7 @@
 # Club Penguin Builder — Roadmap
 
+The core platform is feature-complete: accounts, rooms, items with composable behaviors (collectible, draggable, physics, gravity, movement blocking), game bundling, Pearl currency, and Stripe payments. The remaining items below are future ideas — no timeline set.
+
 ## Roadmap to Launch
 1. ~~Penguin count per CP in main menu~~
 2. ~~Storage & Persistence~~
@@ -26,7 +28,7 @@
 - [x] Deployed to Fly.io with Docker, geo-restriction, cache headers, auto-stop (see Deployment section)
 - [x] Room editor: form-based UI to create/edit rooms (name, background color, exits), hidden room toggle
 - [x] FAQ section: explain what "a Club Penguin" is and why this project is legal; default room dimensions; point to TODO.md for future features and Discord for support
-- [x] FAQ entry explaining the Pearl ecosystem (buy via Stripe, spend on catalog items, sellers earn Pearls, cash out via Stripe Connect)
+- [x] FAQ entry explaining the Pearl ecosystem (buy via Stripe, spend on catalog items/games, sellers earn Pearls, cash out via Stripe Connect) and games
 - [x] Logo: based on the original (no longer trademarked) Club Penguin logo, with "Builder" added below "Penguin" using previously-used letters (or two easily derived from them); three words in traffic-light colors (red/yellow/green)
 - [x] Favicon: based on the "CPB" acronym from the logo
 - [x] Show penguin count per CP in the main menu's Club Penguin list (alongside room count)
@@ -44,7 +46,7 @@
 - [x] Items can be free or paywalled (Pearl currency, Stripe checkout)
 - [x] Free items must still be acquired by an account before being usable in Build
 - [x] Uploaders can always use their own items
-- [ ] Bundle items into "games" (specific location configurations of items-with-behaviors, e.g. beans placed into a Mancala board; only personal uploads for simplicity of proceed-sharing)
+- [x] Bundle items into "games" (export room items as a game, publish to Catalog with Pearl pricing, place as a single unit in other rooms; only personal uploads for simplicity of proceed-sharing; physics scoped per game instance)
   - [ ] Testing environment: playable preview before posting to Catalog (also useful for room design)
   - [ ] Game updates (like CP parties) — especially important if games are listed for Pearls
 
@@ -74,13 +76,13 @@
 - [x] Club Penguin updates ("parties") from party planners
 - [x] Party log per server: saves when parties were launched with their name (entered via the create/edit CP form); users can view the log by clicking an icon next to each server in the CP list
 - [x] Compact serialization: rooms and items stored as ID + coordinates/size (no duplicated asset data)
-- [x] Pearl currency: users buy Pearl bundles via Stripe Checkout, spend Pearls on priced catalog items; sellers earn Pearls on sale; platform takes 1/6 cut after Stripe fees
+- [x] Pearl currency: users buy Pearl bundles via Stripe Checkout, spend Pearls on priced catalog items and games; sellers earn Pearls on sale; platform takes 1/6 cut after Stripe fees
 - [x] Seller cash-out: Pearl holders can withdraw earnings via Stripe Connect
 - [ ] Funding model (deferred — hosting costs too low to justify billing; revisit at scale): supporters pledge one-time, costs divided proportionally by usage-weighted player-hours per CP; subscription revenue from Monetization offsets costs for supporters
 - [ ] Separate tiers for paying to support the server vs. paying to support those who are supporting the server; moderation-choice perks can be gated behind either
 - [ ] Supporters are not synonymous with party planners (someone can pay to support without having rights to adjust the CP, though party planner access itself could be a perk for supporting)
 - [ ] Monetization: party planners can paywall moderation features (external items, clothes memory limit, enforcement actions) via subscription at whatever price the party planner wants
-- [ ] Update FAQ Pearl ecosystem entry once seller cash-out and additional Pearl-gated features are in
+- [x] Update FAQ Pearl ecosystem entry to mention games and seller cash-out
 
 ## Deployment
 - [x] Deploy to Fly.io
