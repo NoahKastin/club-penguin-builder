@@ -408,6 +408,15 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
     setRooms(updated);
   }
 
+  function duplicateItem(roomIndex, itemIndex) {
+    const updated = [...rooms];
+    const items = [...updated[roomIndex].items];
+    const clone = { ...items[itemIndex] };
+    items.splice(itemIndex + 1, 0, clone);
+    updated[roomIndex] = { ...updated[roomIndex], items };
+    setRooms(updated);
+  }
+
   function updateItem(roomIndex, itemIndex, field, value) {
     const updated = [...rooms];
     const items = [...updated[roomIndex].items];
@@ -743,6 +752,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                     </select>
                     {ii > 0 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, -1)} title="Move up">{'\u25B2'}</button>}
                     {ii < (room.items || []).length - 1 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, 1)} title="Move down">{'\u25BC'}</button>}
+                    <button style={styles.smallButton} onClick={() => duplicateItem(ri, ii)} title="Duplicate">{'\u29C9'}</button>
                     <button style={styles.dangerButton} onClick={() => removeItem(ri, ii)}>X</button>
                   </div>
                   <div style={styles.row}>
@@ -773,6 +783,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                     </select>
                     {ii > 0 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, -1)} title="Move up (renders behind)">{'\u25B2'}</button>}
                     {ii < (room.items || []).length - 1 && <button style={styles.smallButton} onClick={() => moveItem(ri, ii, 1)} title="Move down (renders in front)">{'\u25BC'}</button>}
+                    <button style={styles.smallButton} onClick={() => duplicateItem(ri, ii)} title="Duplicate">{'\u29C9'}</button>
                     <button style={styles.dangerButton} onClick={() => removeItem(ri, ii)}>X</button>
                   </div>
                   <div style={styles.row}>
