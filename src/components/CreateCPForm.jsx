@@ -178,11 +178,14 @@ function RoomPreview({ room, catalogItems, games }) {
               }
               const gsx = item.width / game.width;
               const gsy = item.height / game.height;
+              const gameRot = item.rotation || 0;
               return (
                 <div key={i} style={{
                   position: 'absolute', left: item.x * scale, top: item.y * scale,
                   width: item.width * scale, height: item.height * scale,
                   border: '1px dashed #6a9f4a', overflow: 'hidden', pointerEvents: 'none',
+                  transformOrigin: 'top left',
+                  transform: gameRot ? `rotate(${gameRot}deg)` : undefined,
                 }}>
                   {game.items.map((gi, gi_idx) => {
                     const ci = catMap[gi.catalogId];
@@ -396,7 +399,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
             height: e.height,
           })),
           items: (r.items || []).map(item => item.gameId
-            ? { gameId: item.gameId, x: item.x, y: item.y, width: item.width, height: item.height }
+            ? { gameId: item.gameId, x: item.x, y: item.y, width: item.width, height: item.height, rotation: item.rotation || 0 }
             : { ...item, rotation: item.rotation || 0 }
           ),
         }));
@@ -629,7 +632,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
     updated[roomIndex] = {
       ...updated[roomIndex],
       items: [...updated[roomIndex].items, {
-        gameId: game.id, x: 100, y: 100, width: game.width, height: game.height,
+        gameId: game.id, x: 100, y: 100, width: game.width, height: game.height, rotation: 0,
       }],
     };
     setRooms(updated);
@@ -696,7 +699,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
         })),
         items: (room.items || []).map(item => {
           if (item.gameId) {
-            return { gameId: item.gameId, x: item.x, y: item.y, width: item.width, height: item.height };
+            return { gameId: item.gameId, x: item.x, y: item.y, width: item.width, height: item.height, rotation: item.rotation || 0 };
           }
           const base = { catalogId: item.catalogId, x: item.x, y: item.y, width: item.width, height: item.height, rotation: item.rotation || 0, behavior: item.behavior, blocksMovement: !!item.blocksMovement, skid: !!item.skid, gravity: !!item.gravity };
           if (item.behavior === 'collectible') {
@@ -886,6 +889,8 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                     <input style={styles.smallInput} type="number" value={item.width} onChange={(e) => updateItem(ri, ii, 'width', e.target.value)} />
                     <label style={styles.label}>h</label>
                     <input style={styles.smallInput} type="number" value={item.height} onChange={(e) => updateItem(ri, ii, 'height', e.target.value)} />
+                    <label style={styles.label}>rot</label>
+                    <input style={styles.smallInput} type="number" value={item.rotation || 0} onChange={(e) => updateItem(ri, ii, 'rotation', e.target.value)} title="Rotation in degrees" />
                   </div>
                 </>
               ) : (

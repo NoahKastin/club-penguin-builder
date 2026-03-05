@@ -557,17 +557,38 @@ function expandRoomItems(room) {
       if (!game) continue;
       const sx = item.width / game.width;
       const sy = item.height / game.height;
+      const gameRot = (item.rotation || 0) * Math.PI / 180;
+      const cx = item.x + item.width / 2;
+      const cy = item.y + item.height / 2;
       // Unique group key per placement (same game placed twice = two groups)
       const groupKey = item.gameId + ':' + expanded.length;
       for (const gi of game.items) {
+        // Position relative to game center (before rotation)
+        let ex = item.x + gi.x * sx + gi.width * sx / 2 - cx;
+        let ey = item.y + gi.y * sy + gi.height * sy / 2 - cy;
+        // Apply rotation around game center
+        let fx, fy;
+        if (gameRot) {
+          const cos = Math.cos(gameRot);
+          const sin = Math.sin(gameRot);
+          fx = cx + ex * cos - ey * sin;
+          fy = cy + ex * sin + ey * cos;
+        } else {
+          fx = cx + ex;
+          fy = cy + ey;
+        }
+        // Convert back from center to top-left
+        const ew = gi.width * sx;
+        const eh = gi.height * sy;
         expanded.push({
           ...gi,
-          x: item.x + gi.x * sx,
-          y: item.y + gi.y * sy,
-          width: gi.width * sx,
-          height: gi.height * sy,
+          x: fx - ew / 2,
+          y: fy - eh / 2,
+          width: ew,
+          height: eh,
+          rotation: (gi.rotation || 0) + (item.rotation || 0),
           gameGroup: groupKey,
-          gameBounds: { x: item.x, y: item.y, w: item.width, h: item.height },
+          gameBounds: { x: item.x, y: item.y, w: item.width, h: item.height, rotation: item.rotation || 0 },
           gameGravityDirection: game.gravityDirection,
         });
       }
