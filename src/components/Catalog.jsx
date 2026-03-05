@@ -555,8 +555,34 @@ export default function Catalog({ authToken, accountId, penguinName, attribution
           <div style={styles.grid}>
             {displayGames.map(game => (
               <div key={game.id} style={styles.itemCard}>
-                <div style={{ ...styles.thumbnail, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', color: '#888', textAlign: 'center', padding: '8px' }}>
-                  {game.items.length} item{game.items.length !== 1 ? 's' : ''}
+                <div style={{ ...styles.thumbnail, position: 'relative', overflow: 'hidden' }}>
+                  {(() => {
+                    if (!game.width || !game.height || game.items.length === 0) {
+                      return <span style={{ fontSize: '0.8rem', color: '#888' }}>{game.items.length} item{game.items.length !== 1 ? 's' : ''}</span>;
+                    }
+                    const thumbW = 100, thumbH = 100;
+                    const sx = thumbW / game.width;
+                    const sy = thumbH / game.height;
+                    const s = Math.min(sx, sy);
+                    const offX = (thumbW - game.width * s) / 2;
+                    const offY = (thumbH - game.height * s) / 2;
+                    const itemMap = {};
+                    for (const it of items) itemMap[it.id] = it;
+                    return game.items.map((gi, idx) => {
+                      const ci = itemMap[gi.catalogId];
+                      if (!ci) return null;
+                      return <img key={idx} src={ci.image} alt="" style={{
+                        position: 'absolute',
+                        left: offX + gi.x * s,
+                        top: offY + gi.y * s,
+                        width: gi.width * s,
+                        height: gi.height * s,
+                        transform: gi.rotation ? `rotate(${gi.rotation}deg)` : undefined,
+                        objectFit: 'fill',
+                        pointerEvents: 'none',
+                      }} />;
+                    });
+                  })()}
                 </div>
                 <div style={styles.itemName}>{game.name}</div>
                 {game.attribution && <div style={{ fontSize: '0.75rem', color: '#888' }}>by {game.attribution}</div>}

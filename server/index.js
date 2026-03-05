@@ -460,7 +460,7 @@ app.post('/api/games/upload', express.json({ limit: '50kb' }), (req, res) => {
   const accountId = token ? getSession(token) : null;
   if (!accountId) return res.status(401).json({ error: 'Login required' });
 
-  const { name, items, width, height, gravityDirection, price } = req.body;
+  const { name, items, width, height, gravityDirection, price, attribution: clientAttribution } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   if (!items || !Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Game must have at least one item' });
   if (!width || !height || width <= 0 || height <= 0) return res.status(400).json({ error: 'Invalid game dimensions' });
@@ -475,7 +475,7 @@ app.post('/api/games/upload', express.json({ limit: '50kb' }), (req, res) => {
   }
 
   const account = getAccount(accountId);
-  const attribution = account?.attribution_name || account?.username || '';
+  const attribution = (clientAttribution && clientAttribution.trim()) || account?.attribution_name || account?.username || '';
   const game = createGame(name.trim(), items, width, height, gravityDirection || null, accountId, attribution, price || 0);
   res.json({ success: true, game });
 });

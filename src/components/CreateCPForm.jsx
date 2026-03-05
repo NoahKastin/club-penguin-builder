@@ -135,11 +135,13 @@ function makeRoomId() {
   return 'room_' + (roomCounter++);
 }
 
-function RoomPreview({ room, catalogItems }) {
+function RoomPreview({ room, catalogItems, games }) {
   const [open, setOpen] = useState(false);
   const scale = 0.5; // 800x600 → 400x300
   const catMap = {};
   for (const ci of catalogItems) catMap[ci.id] = ci;
+  const gameMap = {};
+  for (const g of (games || [])) gameMap[g.id] = g;
 
   return (
     <div style={{ marginTop: '4px' }}>
@@ -162,25 +164,40 @@ function RoomPreview({ room, catalogItems }) {
         }}>
           {(room.items || []).map((item, i) => {
             if (item.gameId) {
+              const game = gameMap[item.gameId];
+              if (!game || !game.width || !game.height) {
+                return (
+                  <div key={i} style={{
+                    position: 'absolute', left: item.x * scale, top: item.y * scale,
+                    width: item.width * scale, height: item.height * scale,
+                    border: '2px dashed #6a9f4a', background: 'rgba(106, 159, 74, 0.15)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: `${Math.max(8, 10 * scale)}px`, color: '#6a9f4a', pointerEvents: 'none',
+                  }}>Game</div>
+                );
+              }
+              const gsx = item.width / game.width;
+              const gsy = item.height / game.height;
               return (
-                <div
-                  key={i}
-                  style={{
-                    position: 'absolute',
-                    left: item.x * scale,
-                    top: item.y * scale,
-                    width: item.width * scale,
-                    height: item.height * scale,
-                    border: '2px dashed #6a9f4a',
-                    background: 'rgba(106, 159, 74, 0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: `${Math.max(8, 10 * scale)}px`,
-                    color: '#6a9f4a',
-                    pointerEvents: 'none',
-                  }}
-                >Game</div>
+                <div key={i} style={{
+                  position: 'absolute', left: item.x * scale, top: item.y * scale,
+                  width: item.width * scale, height: item.height * scale,
+                  border: '1px dashed #6a9f4a', overflow: 'hidden', pointerEvents: 'none',
+                }}>
+                  {game.items.map((gi, gi_idx) => {
+                    const ci = catMap[gi.catalogId];
+                    if (!ci) return null;
+                    return <img key={gi_idx} src={ci.image} alt="" style={{
+                      position: 'absolute',
+                      left: gi.x * gsx * scale,
+                      top: gi.y * gsy * scale,
+                      width: gi.width * gsx * scale,
+                      height: gi.height * gsy * scale,
+                      transform: gi.rotation ? `rotate(${gi.rotation}deg)` : undefined,
+                      objectFit: 'fill', pointerEvents: 'none',
+                    }} />;
+                  })}
+                </div>
               );
             }
             const ci = catMap[item.catalogId];
@@ -235,6 +252,81 @@ function RoomPreview({ room, catalogItems }) {
   );
 }
 
+function GameExportPreview({ room, catalogItems }) {
+  const [open, setOpen] = useState(false);
+  const catMap = {};
+  for (const ci of catalogItems) catMap[ci.id] = ci;
+
+  const regularItems = (room.items || []).filter(i => !i.gameId);
+  if (regularItems.length === 0) return null;
+
+  // Compute bounding box (same logic as handleExport)
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const item of regularItems) {
+    minX = Math.min(minX, item.x);
+    minY = Math.min(minY, item.y);
+    maxX = Math.max(maxX, item.x + item.width);
+    maxY = Math.max(maxY, item.y + item.height);
+  }
+  const gameW = maxX - minX;
+  const gameH = maxY - minY;
+  if (gameW <= 0 || gameH <= 0) return null;
+
+  // Scale to fit within 400px wide, preserving aspect ratio
+  const maxPreviewW = 400;
+  const scale = Math.min(maxPreviewW / gameW, 1);
+
+  return (
+    <div>
+      <button
+        style={{ padding: '4px 12px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #555', background: 'transparent', color: '#aaa', cursor: 'pointer' }}
+        onClick={() => setOpen(!open)}
+      >
+        {open ? 'Hide Preview' : 'Preview Export'}
+      </button>
+      {open && (
+        <div style={{ marginTop: '6px' }}>
+          <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '4px' }}>
+            {Math.round(gameW)} x {Math.round(gameH)} px
+          </div>
+          <div style={{
+            position: 'relative',
+            width: gameW * scale,
+            height: gameH * scale,
+            background: '#222',
+            borderRadius: '6px',
+            overflow: 'hidden',
+            border: '1px solid #6a9f4a',
+          }}>
+            {regularItems.map((item, i) => {
+              const ci = catMap[item.catalogId];
+              if (!ci) return null;
+              const rot = item.rotation || 0;
+              return (
+                <img
+                  key={i}
+                  src={ci.image}
+                  alt={ci.name}
+                  style={{
+                    position: 'absolute',
+                    left: (item.x - minX) * scale,
+                    top: (item.y - minY) * scale,
+                    width: item.width * scale,
+                    height: item.height * scale,
+                    transform: rot ? `rotate(${rot}deg)` : undefined,
+                    objectFit: 'fill',
+                    pointerEvents: 'none',
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // editCpId: if set, we're editing an existing CP
 export default function CreateCPForm({ editCpId, authToken, accountId, onCreated, onCancel }) {
   const [cpName, setCpName] = useState('');
@@ -254,6 +346,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
   const [acquiredGames, setAcquiredGames] = useState(new Set());
   const [exportingRoom, setExportingRoom] = useState(null); // roomIndex being exported
   const [exportName, setExportName] = useState('');
+  const [exportAttribution, setExportAttribution] = useState('');
   const [exportPrice, setExportPrice] = useState(0);
   const [exportError, setExportError] = useState('');
   const [exportSuccess, setExportSuccess] = useState('');
@@ -500,6 +593,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
       body: JSON.stringify({
         name: exportName.trim(),
+        attribution: exportAttribution.trim(),
         items: gameItems,
         width: gameWidth,
         height: gameHeight,
@@ -512,6 +606,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
         if (data.error) { setExportError(data.error); return; }
         setExportSuccess(`Game "${exportName.trim()}" exported!`);
         setExportName('');
+        setExportAttribution('');
         setExportPrice(0);
         setExportingRoom(null);
         // Refresh available games
@@ -536,6 +631,33 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
       items: [...updated[roomIndex].items, {
         gameId: game.id, x: 100, y: 100, width: game.width, height: game.height,
       }],
+    };
+    setRooms(updated);
+  }
+
+  function cloneGameAsItems(roomIndex, gameId) {
+    const game = availableGames.find(g => g.id === gameId);
+    if (!game) return;
+    const clonedItems = game.items.map(gi => ({
+      catalogId: gi.catalogId,
+      x: gi.x,
+      y: gi.y,
+      width: gi.width,
+      height: gi.height,
+      rotation: gi.rotation || 0,
+      behavior: gi.behavior || null,
+      blocksMovement: !!gi.blocksMovement,
+      skid: !!gi.skid,
+      gravity: !!gi.gravity,
+      wearOffsetX: gi.wearOffsetX || 0,
+      wearOffsetY: gi.wearOffsetY || 0,
+      wearWidth: gi.wearWidth || 40,
+      wearHeight: gi.wearHeight || 40,
+    }));
+    const updated = [...rooms];
+    updated[roomIndex] = {
+      ...updated[roomIndex],
+      items: [...updated[roomIndex].items, ...clonedItems],
     };
     setRooms(updated);
   }
@@ -845,6 +967,18 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
             {ownedGames().length > 0 && (
               <button style={styles.smallButton} onClick={() => addGame(ri)}>+ Add Game</button>
             )}
+            {availableGames.filter(g => g.creatorId === accountId).length > 0 && (
+              <select
+                style={{ ...styles.select, fontSize: '0.75rem' }}
+                value=""
+                onChange={(e) => { if (e.target.value) cloneGameAsItems(ri, e.target.value); }}
+              >
+                <option value="">Clone Game as Items...</option>
+                {availableGames.filter(g => g.creatorId === accountId).map(g => (
+                  <option key={g.id} value={g.id}>{g.name} ({g.items.length} items)</option>
+                ))}
+              </select>
+            )}
             <label style={styles.label}>Beginning with:</label>
             <input
               style={{ ...styles.smallInput, width: '120px' }}
@@ -864,9 +998,14 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
                   <input style={{ ...styles.smallInput, width: '160px' }} type="text" value={exportName} onChange={(e) => setExportName(e.target.value)} maxLength={40} placeholder="Game name..." />
                 </div>
                 <div style={styles.row}>
+                  <label style={styles.label}>Attribution:</label>
+                  <input style={{ ...styles.smallInput, width: '160px' }} type="text" value={exportAttribution} onChange={(e) => setExportAttribution(e.target.value)} maxLength={60} placeholder="Credit / attribution..." />
+                </div>
+                <div style={styles.row}>
                   <label style={styles.label}>Price (Pearls):</label>
                   <input style={{ ...styles.smallInput, width: '80px' }} type="number" min="0" value={exportPrice} onChange={(e) => setExportPrice(Math.max(0, Math.floor(Number(e.target.value) || 0)))} />
                 </div>
+                <GameExportPreview room={room} catalogItems={catalogItems} />
                 {exportError && <div style={styles.error}>{exportError}</div>}
                 {exportSuccess && <div style={{ color: '#6bff6b', fontSize: '0.85rem' }}>{exportSuccess}</div>}
                 <div style={styles.row}>
@@ -877,14 +1016,14 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
             ) : (
               <button
                 style={{ ...styles.smallButton, background: '#6a9f4a', marginTop: '4px' }}
-                onClick={() => { setExportingRoom(ri); setExportName(''); setExportPrice(0); setExportError(''); setExportSuccess(''); }}
+                onClick={() => { setExportingRoom(ri); setExportName(''); setExportAttribution(''); setExportPrice(0); setExportError(''); setExportSuccess(''); }}
               >
                 Export as Game
               </button>
             )
           )}
 
-          <RoomPreview room={room} catalogItems={catalogItems} />
+          <RoomPreview room={room} catalogItems={catalogItems} games={availableGames} />
         </div>
       ))}
 

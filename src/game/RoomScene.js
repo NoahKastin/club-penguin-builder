@@ -66,14 +66,7 @@ export default class RoomScene extends Phaser.Scene {
           pointer.x >= item.x && pointer.x <= item.x + item.w &&
           pointer.y >= item.y && pointer.y <= item.y + item.h
         ) {
-          // If item is also skid, emit a move toward it so server triggers push
-          if (item.skid && this.localId && this.penguins.has(this.localId)) {
-            const penguin = this.penguins.get(this.localId);
-            const targetX = item.x + item.w / 2;
-            const targetY = item.y + item.h / 2;
-            penguin.moveTo(targetX, targetY);
-            socket.move(targetX, targetY);
-          }
+          // Skip skid-walk when starting a drag — dragging handles movement directly
           this.activeDrag = {
             itemIndex: i,
             offsetX: pointer.x - (item.x + item.w / 2),
@@ -115,7 +108,8 @@ export default class RoomScene extends Phaser.Scene {
         }
       }
 
-      // Move local penguin
+      // Move local penguin (suppress if a drag just ended to avoid walking to drag origin)
+      if (this.dragEndedAt && Date.now() - this.dragEndedAt < 200) return;
       if (this.localId && this.penguins.has(this.localId)) {
         const penguin = this.penguins.get(this.localId);
         // Only room-level blockers block penguin movement (not game items)
@@ -160,6 +154,7 @@ export default class RoomScene extends Phaser.Scene {
       }
       socket.dragEnd(itemIndex);
       this.activeDrag = null;
+      this.dragEndedAt = Date.now();
     });
 
     this.onRoomState = (data) => {
