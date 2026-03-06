@@ -5,6 +5,22 @@ import { adjustMoveTarget, simulateSkid, simulateGravity } from '../../shared/co
 
 let textureCounter = 0;
 
+function toLocalSpace(x, y, gb) {
+  const gcx = gb.x + gb.w / 2, gcy = gb.y + gb.h / 2;
+  const rot = -(gb.rotation || 0) * Math.PI / 180;
+  const cos = Math.cos(rot), sin = Math.sin(rot);
+  const dx = x - gcx, dy = y - gcy;
+  return { x: dx * cos - dy * sin + gb.w / 2, y: dx * sin + dy * cos + gb.h / 2 };
+}
+
+function toScreenSpace(x, y, gb) {
+  const gcx = gb.x + gb.w / 2, gcy = gb.y + gb.h / 2;
+  const rot = (gb.rotation || 0) * Math.PI / 180;
+  const cos = Math.cos(rot), sin = Math.sin(rot);
+  const dx = x - gb.w / 2, dy = y - gb.h / 2;
+  return { x: gcx + dx * cos - dy * sin, y: gcy + dx * sin + dy * cos };
+}
+
 export default class RoomScene extends Phaser.Scene {
   constructor() {
     super('RoomScene');
@@ -127,12 +143,35 @@ export default class RoomScene extends Phaser.Scene {
       if (!zone || !zone.img) return;
 
       const gb = zone.gameBounds;
-      const minX = gb ? gb.x + zone.w / 2 : zone.w / 2;
-      const maxX = gb ? gb.x + gb.w - zone.w / 2 : 800 - zone.w / 2;
-      const minY = gb ? gb.y + zone.h / 2 : zone.h / 2;
-      const maxY = gb ? gb.y + gb.h - zone.h / 2 : 600 - zone.h / 2;
-      const cx = Math.max(minX, Math.min(maxX, pointer.x - offsetX));
-      const cy = Math.max(minY, Math.min(maxY, pointer.y - offsetY));
+      let cx, cy;
+      if (gb && gb.rotation) {
+        // Transform into game-local coordinates, clamp, transform back
+        const gcx = gb.x + gb.w / 2;
+        const gcy = gb.y + gb.h / 2;
+        const rot = -gb.rotation * Math.PI / 180;
+        const cos = Math.cos(rot);
+        const sin = Math.sin(rot);
+        const rawX = pointer.x - offsetX - gcx;
+        const rawY = pointer.y - offsetY - gcy;
+        // Un-rotate to local space
+        let lx = rawX * cos - rawY * sin;
+        let ly = rawX * sin + rawY * cos;
+        // Clamp in local (unrotated) bounds
+        lx = Math.max(-gb.w / 2 + zone.w / 2, Math.min(gb.w / 2 - zone.w / 2, lx));
+        ly = Math.max(-gb.h / 2 + zone.h / 2, Math.min(gb.h / 2 - zone.h / 2, ly));
+        // Rotate back to screen space
+        const cos2 = Math.cos(-rot);
+        const sin2 = Math.sin(-rot);
+        cx = gcx + lx * cos2 - ly * sin2;
+        cy = gcy + lx * sin2 + ly * cos2;
+      } else {
+        const minX = gb ? gb.x + zone.w / 2 : zone.w / 2;
+        const maxX = gb ? gb.x + gb.w - zone.w / 2 : 800 - zone.w / 2;
+        const minY = gb ? gb.y + zone.h / 2 : zone.h / 2;
+        const maxY = gb ? gb.y + gb.h - zone.h / 2 : 600 - zone.h / 2;
+        cx = Math.max(minX, Math.min(maxX, pointer.x - offsetX));
+        cy = Math.max(minY, Math.min(maxY, pointer.y - offsetY));
+      }
 
       zone.img.setPosition(cx, cy);
       zone.x = cx - zone.w / 2;
@@ -239,13 +278,34 @@ export default class RoomScene extends Phaser.Scene {
 
       const startAnim = () => {
         if (!zone.img) return;
-        const blockers = this.getBlockers(data.itemIndex, zone.gameGroup);
+        let blockers = this.getBlockers(data.itemIndex, zone.gameGroup);
         const gb = zone.gameBounds;
+        const isRotated = gb && gb.rotation;
         const boundsW = gb ? gb.w : 800;
         const boundsH = gb ? gb.h : 600;
-        const boundsX = gb ? gb.x : 0;
-        const boundsY = gb ? gb.y : 0;
-        const frames = simulateSkid(data.startX, data.startY, zone.w, zone.h, data.vx, data.vy, blockers, boundsW, boundsH, boundsX, boundsY);
+
+        let simX = data.startX, simY = data.startY;
+        let simVx = data.vx, simVy = data.vy;
+        if (isRotated) {
+          const local = toLocalSpace(data.startX + zone.w / 2, data.startY + zone.h / 2, gb);
+          simX = local.x - zone.w / 2;
+          simY = local.y - zone.h / 2;
+          const rot = -(gb.rotation) * Math.PI / 180;
+          const cos = Math.cos(rot), sin = Math.sin(rot);
+          simVx = data.vx * cos - data.vy * sin;
+          simVy = data.vx * sin + data.vy * cos;
+          blockers = blockers.map(b => {
+            const bl = toLocalSpace(b.x + b.w / 2, b.y + b.h / 2, gb);
+            return { x: bl.x - b.w / 2, y: bl.y - b.h / 2, w: b.w, h: b.h };
+          });
+        }
+
+        const localFrames = simulateSkid(simX, simY, zone.w, zone.h, simVx, simVy, blockers,
+          boundsW, boundsH, isRotated ? 0 : (gb ? gb.x : 0), isRotated ? 0 : (gb ? gb.y : 0));
+        const frames = isRotated ? localFrames.map(f => {
+          const s = toScreenSpace(f.x + zone.w / 2, f.y + zone.h / 2, gb);
+          return { x: s.x - zone.w / 2, y: s.y - zone.h / 2 };
+        }) : localFrames;
         if (frames.length < 2) return;
 
         this.skidAnimations.add(data.itemIndex);
@@ -294,13 +354,29 @@ export default class RoomScene extends Phaser.Scene {
         return;
       }
 
-      const blockers = this.getBlockers(data.itemIndex, zone.gameGroup);
+      let blockers = this.getBlockers(data.itemIndex, zone.gameGroup);
       const gb = zone.gameBounds;
+      const isRotated = gb && gb.rotation;
       const boundsW = gb ? gb.w : 800;
       const boundsH = gb ? gb.h : 600;
-      const boundsX = gb ? gb.x : 0;
-      const boundsY = gb ? gb.y : 0;
-      const frames = simulateGravity(data.startX, data.startY, zone.w, zone.h, data.direction, blockers, boundsW, boundsH, boundsX, boundsY);
+
+      let simX = data.startX, simY = data.startY;
+      if (isRotated) {
+        const local = toLocalSpace(data.startX + zone.w / 2, data.startY + zone.h / 2, gb);
+        simX = local.x - zone.w / 2;
+        simY = local.y - zone.h / 2;
+        blockers = blockers.map(b => {
+          const bl = toLocalSpace(b.x + b.w / 2, b.y + b.h / 2, gb);
+          return { x: bl.x - b.w / 2, y: bl.y - b.h / 2, w: b.w, h: b.h };
+        });
+      }
+
+      const localFrames = simulateGravity(simX, simY, zone.w, zone.h, data.direction, blockers,
+        boundsW, boundsH, isRotated ? 0 : (gb ? gb.x : 0), isRotated ? 0 : (gb ? gb.y : 0));
+      const frames = isRotated ? localFrames.map(f => {
+        const s = toScreenSpace(f.x + zone.w / 2, f.y + zone.h / 2, gb);
+        return { x: s.x - zone.w / 2, y: s.y - zone.h / 2 };
+      }) : localFrames;
       if (frames.length < 2) return;
 
       this.skidAnimations.add(data.itemIndex);

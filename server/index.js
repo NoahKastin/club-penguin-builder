@@ -545,6 +545,30 @@ function cpSummary(cpId) {
   return { id: cp.id, name: cp.name, roomCount: Object.keys(cp.rooms).length, penguinCount: getPenguinCountForCP(cpId), creatorId: cp.creatorId || null };
 }
 
+// Transform a point from screen space to game-local space (un-rotate around game center, shift to 0-origin)
+function toLocalSpace(x, y, gb) {
+  const gcx = gb.x + gb.w / 2;
+  const gcy = gb.y + gb.h / 2;
+  const rot = -(gb.rotation || 0) * Math.PI / 180;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  const dx = x - gcx;
+  const dy = y - gcy;
+  return { x: dx * cos - dy * sin + gb.w / 2, y: dx * sin + dy * cos + gb.h / 2 };
+}
+
+// Transform a point from game-local space back to screen space
+function toScreenSpace(x, y, gb) {
+  const gcx = gb.x + gb.w / 2;
+  const gcy = gb.y + gb.h / 2;
+  const rot = (gb.rotation || 0) * Math.PI / 180;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  const dx = x - gb.w / 2;
+  const dy = y - gb.h / 2;
+  return { x: gcx + dx * cos - dy * sin, y: gcy + dx * sin + dy * cos };
+}
+
 // Expand game entries in a room's items array into individual items.
 // Each game entry becomes N items with gameGroup, scaled/translated to the game's placement rect.
 // Returns a new items array with games expanded, plus a mapping for catalog resolution.
@@ -699,21 +723,48 @@ function settleGravityItems(cpId, roomId, room) {
       }
     });
 
+    const gb = isGame ? items[0].gameBounds : null;
+    const isRotated = gb && gb.rotation;
+
     for (const item of items) {
       // Rebuild blockers each iteration — scoped to same gameGroup
       const currentResolved = resolveRoomItems(room, cpId, roomId);
-      const blockers = currentResolved
+      let blockers = currentResolved
         .filter(i => i.blocksMovement && i.idx !== item.idx && i.gameGroup === item.gameGroup)
         .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
 
-      const frames = simulateGravity(item.x, item.y, item.w, item.h, direction, blockers, boundsW, boundsH, boundsX, boundsY);
-      const finalPos = frames[frames.length - 1];
+      let simX = item.x, simY = item.y;
+      if (isRotated) {
+        // Transform item and blockers into game-local space
+        const local = toLocalSpace(item.x + item.w / 2, item.y + item.h / 2, gb);
+        simX = local.x - item.w / 2;
+        simY = local.y - item.h / 2;
+        blockers = blockers.map(b => {
+          const bl = toLocalSpace(b.x + b.w / 2, b.y + b.h / 2, gb);
+          return { x: bl.x - b.w / 2, y: bl.y - b.h / 2, w: b.w, h: b.h };
+        });
+      }
 
-      if (Math.abs(finalPos.x - item.x) > 0.5 || Math.abs(finalPos.y - item.y) > 0.5) {
-        setItemPosition(cpId, roomId, item.idx, finalPos.x, finalPos.y);
+      const frames = simulateGravity(simX, simY, item.w, item.h, direction, blockers,
+        isRotated ? boundsW : boundsW, isRotated ? boundsH : boundsH,
+        isRotated ? 0 : boundsX, isRotated ? 0 : boundsY);
+      const localFinal = frames[frames.length - 1];
+
+      let finalX, finalY;
+      if (isRotated) {
+        const screen = toScreenSpace(localFinal.x + item.w / 2, localFinal.y + item.h / 2, gb);
+        finalX = screen.x - item.w / 2;
+        finalY = screen.y - item.h / 2;
+      } else {
+        finalX = localFinal.x;
+        finalY = localFinal.y;
+      }
+
+      if (Math.abs(finalX - item.x) > 0.5 || Math.abs(finalY - item.y) > 0.5) {
+        setItemPosition(cpId, roomId, item.idx, finalX, finalY);
         // Only persist for non-game draggable-persist items
         if (!item.gameGroup && room.items[item.idx]?.behavior === 'draggable-persist') {
-          updateRoomItemPosition(cpId, roomId, item.idx, finalPos.x, finalPos.y);
+          updateRoomItemPosition(cpId, roomId, item.idx, finalX, finalY);
         }
         events.push({ itemIndex: item.idx, startX: item.x, startY: item.y, direction });
       }
@@ -737,16 +788,40 @@ function applyGravityToItem(cpId, roomId, room, itemIndex) {
   const boundsH = isGame && item.gameBounds ? item.gameBounds.h : 600;
 
   // Scope blockers to same gameGroup
-  const blockers = resolved
+  const gb = isGame ? item.gameBounds : null;
+  const isRotated = gb && gb.rotation;
+  let blockers = resolved
     .filter(i => i.blocksMovement && i.idx !== itemIndex && i.gameGroup === item.gameGroup)
     .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
 
-  const frames = simulateGravity(item.x, item.y, item.w, item.h, direction, blockers, boundsW, boundsH, boundsX, boundsY);
-  const finalPos = frames[frames.length - 1];
+  let simX = item.x, simY = item.y;
+  if (isRotated) {
+    const local = toLocalSpace(item.x + item.w / 2, item.y + item.h / 2, gb);
+    simX = local.x - item.w / 2;
+    simY = local.y - item.h / 2;
+    blockers = blockers.map(b => {
+      const bl = toLocalSpace(b.x + b.w / 2, b.y + b.h / 2, gb);
+      return { x: bl.x - b.w / 2, y: bl.y - b.h / 2, w: b.w, h: b.h };
+    });
+  }
 
-  if (Math.abs(finalPos.x - item.x) < 0.5 && Math.abs(finalPos.y - item.y) < 0.5) return null;
+  const frames = simulateGravity(simX, simY, item.w, item.h, direction, blockers,
+    boundsW, boundsH, isRotated ? 0 : boundsX, isRotated ? 0 : boundsY);
+  const localFinal = frames[frames.length - 1];
 
-  setItemPosition(cpId, roomId, itemIndex, finalPos.x, finalPos.y);
+  let finalX, finalY;
+  if (isRotated) {
+    const screen = toScreenSpace(localFinal.x + item.w / 2, localFinal.y + item.h / 2, gb);
+    finalX = screen.x - item.w / 2;
+    finalY = screen.y - item.h / 2;
+  } else {
+    finalX = localFinal.x;
+    finalY = localFinal.y;
+  }
+
+  if (Math.abs(finalX - item.x) < 0.5 && Math.abs(finalY - item.y) < 0.5) return null;
+
+  setItemPosition(cpId, roomId, itemIndex, finalX, finalY);
   if (!isGame && room.items[itemIndex]?.behavior === 'draggable-persist') {
     updateRoomItemPosition(cpId, roomId, itemIndex, finalPos.x, finalPos.y);
   }
@@ -872,24 +947,55 @@ io.on('connection', (socket) => {
             const vy = dirY * speed / 60;
 
             // Get blockers for the skid sim — scoped by gameGroup
-            const skidBlockers = resolvedItems
+            const skidGb = item.gameBounds;
+            const skidRotated = skidGb && skidGb.rotation;
+            let skidBlockers = resolvedItems
               .filter(i => i.blocksMovement && i.idx !== item.idx && i.gameGroup === item.gameGroup)
               .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
 
             // Use game bounds for game items, room bounds for room items
-            const boundsW = item.gameBounds ? item.gameBounds.w : 800;
-            const boundsH = item.gameBounds ? item.gameBounds.h : 600;
-            const boundsX = item.gameBounds ? item.gameBounds.x : 0;
-            const boundsY = item.gameBounds ? item.gameBounds.y : 0;
+            const boundsW = skidGb ? skidGb.w : 800;
+            const boundsH = skidGb ? skidGb.h : 600;
+            const boundsX = skidGb ? skidGb.x : 0;
+            const boundsY = skidGb ? skidGb.y : 0;
 
-            const frames = simulateSkid(item.x, item.y, item.w, item.h, vx, vy, skidBlockers, boundsW, boundsH, boundsX, boundsY);
-            const finalPos = frames[frames.length - 1];
+            let simSkidX = item.x, simSkidY = item.y;
+            let simVx = vx, simVy = vy;
+            if (skidRotated) {
+              const local = toLocalSpace(item.x + item.w / 2, item.y + item.h / 2, skidGb);
+              simSkidX = local.x - item.w / 2;
+              simSkidY = local.y - item.h / 2;
+              // Rotate velocity into local space
+              const rot = -(skidGb.rotation) * Math.PI / 180;
+              const cos = Math.cos(rot);
+              const sin = Math.sin(rot);
+              simVx = vx * cos - vy * sin;
+              simVy = vx * sin + vy * cos;
+              skidBlockers = skidBlockers.map(b => {
+                const bl = toLocalSpace(b.x + b.w / 2, b.y + b.h / 2, skidGb);
+                return { x: bl.x - b.w / 2, y: bl.y - b.h / 2, w: b.w, h: b.h };
+              });
+            }
+
+            const frames = simulateSkid(simSkidX, simSkidY, item.w, item.h, simVx, simVy, skidBlockers,
+              boundsW, boundsH, skidRotated ? 0 : boundsX, skidRotated ? 0 : boundsY);
+            const localFinalSkid = frames[frames.length - 1];
+
+            let finalSkidX, finalSkidY;
+            if (skidRotated) {
+              const screen = toScreenSpace(localFinalSkid.x + item.w / 2, localFinalSkid.y + item.h / 2, skidGb);
+              finalSkidX = screen.x - item.w / 2;
+              finalSkidY = screen.y - item.h / 2;
+            } else {
+              finalSkidX = localFinalSkid.x;
+              finalSkidY = localFinalSkid.y;
+            }
 
             // Store final position (use expanded index)
-            setItemPosition(penguin.cpId, penguin.roomId, item.idx, finalPos.x, finalPos.y);
+            setItemPosition(penguin.cpId, penguin.roomId, item.idx, finalSkidX, finalSkidY);
             // Only persist for non-game draggable-persist items
             if (!item.gameGroup && expandedItems[item.idx]?.behavior === 'draggable-persist') {
-              updateRoomItemPosition(penguin.cpId, penguin.roomId, item.idx, finalPos.x, finalPos.y);
+              updateRoomItemPosition(penguin.cpId, penguin.roomId, item.idx, finalSkidX, finalSkidY);
             }
 
             // Broadcast push to all clients (include hit.t so clients can delay animation)
@@ -1105,9 +1211,29 @@ io.on('connection', (socket) => {
     // Clamp to game bounds or room bounds
     const expandedItems = expandRoomItems(room);
     const item = expandedItems[itemIndex];
-    if (item?.gameBounds) {
-      x = Math.max(item.gameBounds.x, Math.min(item.gameBounds.x + item.gameBounds.w, x));
-      y = Math.max(item.gameBounds.y, Math.min(item.gameBounds.y + item.gameBounds.h, y));
+    if (item?.gameBounds && item.gameBounds.rotation) {
+      const gb = item.gameBounds;
+      const gcx = gb.x + gb.w / 2;
+      const gcy = gb.y + gb.h / 2;
+      const rot = -gb.rotation * Math.PI / 180;
+      const cos = Math.cos(rot);
+      const sin = Math.sin(rot);
+      // Un-rotate to local space
+      let lx = (x + item.width / 2 - gcx) * cos - (y + item.height / 2 - gcy) * sin;
+      let ly = (x + item.width / 2 - gcx) * sin + (y + item.height / 2 - gcy) * cos;
+      // Clamp in local bounds
+      lx = Math.max(-gb.w / 2 + item.width / 2, Math.min(gb.w / 2 - item.width / 2, lx));
+      ly = Math.max(-gb.h / 2 + item.height / 2, Math.min(gb.h / 2 - item.height / 2, ly));
+      // Rotate back
+      const cos2 = Math.cos(-rot);
+      const sin2 = Math.sin(-rot);
+      const sx = gcx + lx * cos2 - ly * sin2;
+      const sy = gcy + lx * sin2 + ly * cos2;
+      x = sx - item.width / 2;
+      y = sy - item.height / 2;
+    } else if (item?.gameBounds) {
+      x = Math.max(item.gameBounds.x, Math.min(item.gameBounds.x + item.gameBounds.w - item.width, x));
+      y = Math.max(item.gameBounds.y, Math.min(item.gameBounds.y + item.gameBounds.h - item.height, y));
     } else {
       x = Math.max(0, Math.min(800, x));
       y = Math.max(0, Math.min(600, y));
