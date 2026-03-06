@@ -184,7 +184,6 @@ function RoomPreview({ room, catalogItems, games }) {
                   position: 'absolute', left: item.x * scale, top: item.y * scale,
                   width: item.width * scale, height: item.height * scale,
                   border: '1px dashed #6a9f4a', overflow: 'hidden', pointerEvents: 'none',
-                  transformOrigin: 'top left',
                   transform: gameRot ? `rotate(${gameRot}deg)` : undefined,
                 }}>
                   {game.items.map((gi, gi_idx) => {
