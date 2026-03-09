@@ -47,8 +47,6 @@ The core platform is feature-complete: accounts, rooms, items with composable be
 - [x] Free items must still be acquired by an account before being usable in Build
 - [x] Uploaders can always use their own items
 - [x] Bundle items into "games" (export room items as a game, publish to Catalog with Pearl pricing, place as a single unit in other rooms; only personal uploads for simplicity of proceed-sharing; physics scoped per game instance)
-  - [ ] Testing environment: playable preview before posting to Catalog (also useful for room design)
-  - [ ] Game updates (like CP parties) — especially important if games are listed for Pearls
 
 ## Item Behaviors (per room)
 - [x] Collectible by penguins (clothes: render on penguins — pins, colors/sprites, costumes, hats, etc.)
