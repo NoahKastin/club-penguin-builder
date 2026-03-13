@@ -59,6 +59,12 @@ The core platform is feature-complete: accounts, rooms, items with composable be
 - [x] Collectible items display with white glow shadow; draggable items display with black glow shadow
 - [x] Behaviors are composable: interaction type (collectible/draggable) via dropdown + modifier flags (blocks movement, etc.) via checkboxes
 
+## Performance
+- [ ] Cache expanded room items per request (expandRoomItems is called multiple times in the same join/move/drag-end request, re-loading game definitions from DB each time)
+- [ ] Resolve items once in settleGravityItems and update positions in-place (currently re-resolves ALL items for EACH gravity item — O(n²) with many physics items)
+- [ ] Early exit in physics simulations when velocity is negligible (simulateGravity and simulateSkid always run up to MAX_STEPS=300 even when the item has effectively stopped)
+- [ ] Skip postFX glow on game sub-items or replace with a cheaper visual (GPU-intensive glow on 20+ items compounds per frame)
+
 ## Moderation
 - [ ] Rules stated per Club Penguin
 - [ ] Configurable enforcement actions
