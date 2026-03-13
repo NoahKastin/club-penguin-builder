@@ -727,9 +727,8 @@ function settleGravityItems(cpId, roomId, room) {
     const isRotated = gb && gb.rotation;
 
     for (const item of items) {
-      // Rebuild blockers each iteration — scoped to same gameGroup
-      const currentResolved = resolveRoomItems(room, cpId, roomId);
-      let blockers = currentResolved
+      // Use already-resolved items (updated in-place below) — scoped to same gameGroup
+      let blockers = resolved
         .filter(i => i.blocksMovement && i.idx !== item.idx && i.gameGroup === item.gameGroup)
         .map(i => ({ x: i.x, y: i.y, w: i.w, h: i.h }));
 
@@ -762,6 +761,9 @@ function settleGravityItems(cpId, roomId, room) {
 
       if (Math.abs(finalX - item.x) > 0.5 || Math.abs(finalY - item.y) > 0.5) {
         setItemPosition(cpId, roomId, item.idx, finalX, finalY);
+        // Update resolved array in-place so subsequent items see settled positions
+        resolved[item.idx].x = finalX;
+        resolved[item.idx].y = finalY;
         // Only persist for non-game draggable-persist items
         if (!item.gameGroup && room.items[item.idx]?.behavior === 'draggable-persist') {
           updateRoomItemPosition(cpId, roomId, item.idx, finalX, finalY);
@@ -1251,9 +1253,10 @@ io.on('connection', (socket) => {
     if (!entry) return;
 
     const cp = getClubPenguin(penguin.cpId);
-    if (cp && entry.x != null && entry.y != null) {
-      const room = cp.rooms[penguin.roomId];
-      const expandedItems = expandRoomItems(room);
+    const room = cp && cp.rooms[penguin.roomId];
+    const expandedItems = room ? expandRoomItems(room) : null;
+
+    if (cp && entry.x != null && entry.y != null && expandedItems) {
       const item = expandedItems[itemIndex];
       // Only persist for non-game draggable-persist items
       if (item && !item.gameGroup && item.behavior === 'draggable-persist') {
@@ -1268,9 +1271,7 @@ io.on('connection', (socket) => {
     }, socket.id);
 
     // If released item has gravity, apply gravity from release point
-    if (cp) {
-      const room = cp.rooms[penguin.roomId];
-      const expandedItems = expandRoomItems(room);
+    if (cp && expandedItems) {
       const expandedRoom = { ...room, items: expandedItems };
       const item = expandedItems[itemIndex];
       if (item?.gravity) {

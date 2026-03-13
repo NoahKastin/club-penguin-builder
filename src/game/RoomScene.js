@@ -632,10 +632,13 @@ export default class RoomScene extends Phaser.Scene {
     const rotation = (item.rotation || 0) * Math.PI / 180;
 
     const applyEffects = (img) => {
-      if (item.behavior === 'collectible' && img.postFX) {
-        img.postFX.addGlow(0xffffff, 4, 0, false, 0.1, 24);
-      } else if (isDraggable && img.postFX) {
-        img.postFX.addGlow(0x000000, 4, 0, false, 0.1, 24);
+      // Skip GPU-intensive glow on game sub-items (too many per frame)
+      if (!item.gameGroup) {
+        if (item.behavior === 'collectible' && img.postFX) {
+          img.postFX.addGlow(0xffffff, 4, 0, false, 0.1, 24);
+        } else if (isDraggable && img.postFX) {
+          img.postFX.addGlow(0x000000, 4, 0, false, 0.1, 24);
+        }
       }
       zone.img = img;
     };

@@ -259,8 +259,12 @@ export function simulateGravity(startX, startY, itemW, itemH, direction, blocker
 
     frames.push({ x, y });
 
-    // Stop when velocity is negligible AND resting against a surface
-    if (Math.abs(vx) < GRAV_STOP && Math.abs(vy) < GRAV_STOP && (hitWall || hitBlocker)) break;
+    // Stop when velocity is negligible AND (resting against a surface OR position barely changed)
+    if (Math.abs(vx) < GRAV_STOP && Math.abs(vy) < GRAV_STOP) {
+      if (hitWall || hitBlocker) break;
+      const prev = frames[frames.length - 2];
+      if (Math.abs(x - prev.x) < 0.1 && Math.abs(y - prev.y) < 0.1) break;
+    }
   }
 
   return frames;
