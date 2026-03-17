@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { TermsOfService, PrivacyPolicy } from './LegalText';
 
 const styles = {
   container: {
@@ -86,6 +87,7 @@ export default function NameEntry({ onJoin }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showLegal, setShowLegal] = useState(null); // 'tos' | 'privacy' | null
 
   function handleGuest(e) {
     e.preventDefault();
@@ -218,7 +220,24 @@ export default function NameEntry({ onJoin }) {
             </button>
           </form>
         )}
+        <div style={{ fontSize: '0.8rem', color: '#888', textAlign: 'center' }}>
+          By using the platform, you agree to our{' '}
+          <button onClick={() => setShowLegal('tos')} style={{ background: 'none', border: 'none', color: '#4a90d9', cursor: 'pointer', fontSize: '0.8rem', padding: 0, textDecoration: 'underline' }}>Terms of Service</button>
+          {' '}and{' '}
+          <button onClick={() => setShowLegal('privacy')} style={{ background: 'none', border: 'none', color: '#4a90d9', cursor: 'pointer', fontSize: '0.8rem', padding: 0, textDecoration: 'underline' }}>Privacy Policy</button>.
+        </div>
       </div>
+
+      {showLegal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setShowLegal(null)}>
+          <div style={{ background: '#1a1a2e', borderRadius: '12px', padding: '24px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflowY: 'auto', fontSize: '0.9rem', lineHeight: '1.5' }} onClick={(e) => e.stopPropagation()}>
+            {showLegal === 'tos' ? <TermsOfService /> : <PrivacyPolicy />}
+            <div style={{ textAlign: 'center', marginTop: '16px' }}>
+              <button onClick={() => setShowLegal(null)} style={{ padding: '8px 24px', fontSize: '0.9rem', borderRadius: '8px', border: 'none', background: '#4a90d9', color: '#fff', cursor: 'pointer' }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
