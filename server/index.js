@@ -830,6 +830,25 @@ function applyGravityToItem(cpId, roomId, room, itemIndex) {
   return { itemIndex, startX: item.x, startY: item.y, direction };
 }
 
+// Compute spawn coordinates based on spawn config (room-level overrides CP-level)
+function computeSpawnCoords(cp, roomId, prevX, prevY) {
+  const room = cp.rooms[roomId];
+  const config = (room && room.spawnConfig) || cp.spawnConfig || { mode: 'fixed', x: 400, y: 350 };
+  switch (config.mode) {
+    case 'random':
+      return { x: Math.floor(Math.random() * 800), y: Math.floor(Math.random() * 600) };
+    case 'opposite':
+      if (prevX != null && prevY != null) {
+        return { x: 800 - prevX, y: 600 - prevY };
+      }
+      // No previous position (first join) — fall back to center
+      return { x: 400, y: 350 };
+    case 'fixed':
+    default:
+      return { x: config.x ?? 400, y: config.y ?? 350 };
+  }
+}
+
 function wireSocketEvents() {
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
@@ -864,7 +883,8 @@ io.on('connection', (socket) => {
     const spawnRoom = visibleRooms.length > 0
       ? visibleRooms[Math.floor(Math.random() * visibleRooms.length)]
       : cp.spawnRoom;
-    const penguin = addPenguin(socket.id, name, cpId, spawnRoom, accountId);
+    const spawn = computeSpawnCoords(cp, spawnRoom, null, null);
+    const penguin = addPenguin(socket.id, name, cpId, spawnRoom, accountId, spawn.x, spawn.y);
 
     // Restore saved inventory and preferences for logged-in users
     if (accountId) {
@@ -1060,10 +1080,13 @@ io.on('connection', (socket) => {
     if (!cp || !cp.rooms[roomId]) return;
 
     const oldRoom = penguin.roomId;
+    const prevX = penguin.x;
+    const prevY = penguin.y;
 
     broadcastToCPRoom(penguin.cpId, oldRoom, 'penguinLeft', { id: penguin.id, name: penguin.name }, socket.id);
 
-    changePenguinRoom(socket.id, roomId);
+    const spawn = computeSpawnCoords(cp, roomId, prevX, prevY);
+    changePenguinRoom(socket.id, roomId, spawn.x, spawn.y);
 
     const newRoom = cp.rooms[roomId];
     const expandedItems = expandRoomItems(newRoom);
@@ -1339,7 +1362,7 @@ io.on('connection', (socket) => {
     const itemError = validateItemAccess(data.rooms, creatorAccountId);
     if (itemError) return callback({ success: false, error: itemError });
 
-    const cp = createClubPenguin(data.name.trim(), data.rooms, creatorAccountId);
+    const cp = createClubPenguin(data.name.trim(), data.rooms, creatorAccountId, data.spawnConfig || null);
     const summary = cpSummary(cp.id);
     callback({ success: true, cp: summary });
     io.emit('clubPenguinCreated', summary);
@@ -1382,7 +1405,7 @@ io.on('connection', (socket) => {
     const itemError = validateItemAccess(data.rooms, editorAccountId);
     if (itemError) return callback({ success: false, error: itemError });
 
-    const cp = updateClubPenguin(data.id, data.name.trim(), data.rooms);
+    const cp = updateClubPenguin(data.id, data.name.trim(), data.rooms, data.spawnConfig || null);
     if (!cp) {
       return callback({ success: false, error: 'Club Penguin not found' });
     }

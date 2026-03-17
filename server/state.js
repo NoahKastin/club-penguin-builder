@@ -1,15 +1,15 @@
 const penguins = new Map();
 const dragState = new Map(); // key: "cpId:roomId", value: Map<itemIndex, { x, y, draggedBy }>
 
-export function addPenguin(socketId, name, cpId, spawnRoom, accountId = null) {
+export function addPenguin(socketId, name, cpId, spawnRoom, accountId = null, spawnX = 400, spawnY = 350) {
   const penguin = {
     id: socketId,
     name,
     cpId,
     roomId: spawnRoom,
     accountId,
-    x: 400,
-    y: 350,
+    x: spawnX,
+    y: spawnY,
     inventory: [], // all collected items
     clothes: [],   // currently worn items (subset of inventory)
     hideEmoji: false,
@@ -74,12 +74,12 @@ export function unequipItem(socketId, clothesIndex) {
   return penguin;
 }
 
-export function changePenguinRoom(socketId, roomId) {
+export function changePenguinRoom(socketId, roomId, spawnX = 400, spawnY = 350) {
   const penguin = penguins.get(socketId);
   if (penguin) {
     penguin.roomId = roomId;
-    penguin.x = 400;
-    penguin.y = 350;
+    penguin.x = spawnX;
+    penguin.y = spawnY;
   }
   return penguin;
 }

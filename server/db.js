@@ -220,4 +220,10 @@ db.exec(`
   )
 `);
 
+// Migration: add spawn_config to club_penguins
+const cpCols2 = db.prepare("PRAGMA table_info(club_penguins)").all().map(c => c.name);
+if (!cpCols2.includes('spawn_config')) {
+  db.exec("ALTER TABLE club_penguins ADD COLUMN spawn_config TEXT NOT NULL DEFAULT '{\"mode\":\"fixed\",\"x\":400,\"y\":350}'");
+}
+
 export default db;

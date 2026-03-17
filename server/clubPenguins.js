@@ -11,17 +11,19 @@ function rowToCP(row) {
     name: row.name,
     rooms: JSON.parse(row.rooms),
     spawnRoom: row.spawn_room,
+    spawnConfig: row.spawn_config ? JSON.parse(row.spawn_config) : { mode: 'fixed', x: 400, y: 350 },
     creatorId: row.creator_id || null,
     createdAt: row.created_at,
   };
 }
 
-export function createClubPenguin(name, rooms, creatorId = null) {
+export function createClubPenguin(name, rooms, creatorId = null, spawnConfig = null) {
   const id = 'cp_' + (nextId++);
   const spawnRoom = Object.keys(rooms).find(k => !rooms[k].hidden) || Object.keys(rooms)[0];
   const createdAt = Date.now();
-  db.prepare('INSERT INTO club_penguins (id, name, rooms, spawn_room, created_at, creator_id) VALUES (?, ?, ?, ?, ?, ?)').run(id, name, JSON.stringify(rooms), spawnRoom, createdAt, creatorId);
-  return { id, name, rooms, spawnRoom, creatorId, createdAt };
+  const sc = spawnConfig || { mode: 'fixed', x: 400, y: 350 };
+  db.prepare('INSERT INTO club_penguins (id, name, rooms, spawn_room, created_at, creator_id, spawn_config) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, name, JSON.stringify(rooms), spawnRoom, createdAt, creatorId, JSON.stringify(sc));
+  return { id, name, rooms, spawnRoom, spawnConfig: sc, creatorId, createdAt };
 }
 
 export function getClubPenguin(cpId) {
@@ -29,11 +31,17 @@ export function getClubPenguin(cpId) {
   return row ? rowToCP(row) : undefined;
 }
 
-export function updateClubPenguin(cpId, name, rooms) {
+export function updateClubPenguin(cpId, name, rooms, spawnConfig = null) {
   const spawnRoom = Object.keys(rooms).find(k => !rooms[k].hidden) || Object.keys(rooms)[0];
+  if (spawnConfig) {
+    const result = db.prepare('UPDATE club_penguins SET name = ?, rooms = ?, spawn_room = ?, spawn_config = ? WHERE id = ?').run(name, JSON.stringify(rooms), spawnRoom, JSON.stringify(spawnConfig), cpId);
+    if (result.changes === 0) return null;
+    return { id: cpId, name, rooms, spawnRoom, spawnConfig };
+  }
   const result = db.prepare('UPDATE club_penguins SET name = ?, rooms = ?, spawn_room = ? WHERE id = ?').run(name, JSON.stringify(rooms), spawnRoom, cpId);
   if (result.changes === 0) return null;
-  return { id: cpId, name, rooms, spawnRoom };
+  const existing = getClubPenguin(cpId);
+  return { id: cpId, name, rooms, spawnRoom, spawnConfig: existing?.spawnConfig || { mode: 'fixed', x: 400, y: 350 } };
 }
 
 export function updateRoomItemPosition(cpId, roomId, itemIndex, x, y) {

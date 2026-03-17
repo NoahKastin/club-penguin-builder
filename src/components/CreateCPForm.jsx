@@ -333,7 +333,7 @@ function GameExportPreview({ room, catalogItems }) {
 export default function CreateCPForm({ editCpId, authToken, accountId, onCreated, onCancel }) {
   const [cpName, setCpName] = useState('');
   const [rooms, setRooms] = useState([
-    { tempId: 'room_1', name: 'Lobby', bgColor: '#333333', hidden: false, gravityDirection: null, exits: [], items: [] },
+    { tempId: 'room_1', name: 'Lobby', bgColor: '#333333', hidden: false, gravityDirection: null, spawnConfig: null, exits: [], items: [] },
   ]);
   const [partyName, setPartyName] = useState('');
   const [error, setError] = useState('');
@@ -352,6 +352,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
   const [exportPrice, setExportPrice] = useState(0);
   const [exportError, setExportError] = useState('');
   const [exportSuccess, setExportSuccess] = useState('');
+  const [spawnConfig, setSpawnConfig] = useState({ mode: 'fixed', x: 400, y: 350 });
 
   useEffect(() => {
     fetch('/api/catalog').then(r => r.json()).then(setCatalogItems).catch(() => {});
@@ -383,12 +384,14 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
       .then(r => r.json())
       .then(cp => {
         setCpName(cp.name);
+        if (cp.spawnConfig) setSpawnConfig(cp.spawnConfig);
         const roomList = Object.values(cp.rooms).map(r => ({
           tempId: r.id,
           name: r.name,
           bgColor: r.bgColor,
           hidden: r.hidden || false,
           gravityDirection: r.gravityDirection || null,
+          spawnConfig: r.spawnConfig || null,
           exits: (r.exits || []).map(e => ({
             targetRoom: e.targetRoom,
             label: e.label,
@@ -415,7 +418,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
   }, [editCpId]);
 
   function addRoom() {
-    setRooms([...rooms, { tempId: makeRoomId(), name: '', bgColor: '#333333', hidden: false, gravityDirection: null, exits: [], items: [] }]);
+    setRooms([...rooms, { tempId: makeRoomId(), name: '', bgColor: '#333333', hidden: false, gravityDirection: null, spawnConfig: null, exits: [], items: [] }]);
   }
 
   function removeRoom(index) {
@@ -688,6 +691,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
         bgColor: room.bgColor,
         hidden: room.hidden || false,
         gravityDirection: room.gravityDirection || null,
+        spawnConfig: room.spawnConfig || undefined,
         exits: room.exits.map(e => ({
           targetRoom: e.targetRoom,
           label: e.label || rooms.find(r => r.tempId === e.targetRoom)?.name || e.targetRoom,
@@ -713,7 +717,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
     }
 
     if (editCpId) {
-      socket.editClubPenguin({ id: editCpId, name: cpName.trim(), rooms: roomsObj, partyName: partyName.trim() || undefined }, (response) => {
+      socket.editClubPenguin({ id: editCpId, name: cpName.trim(), rooms: roomsObj, spawnConfig, partyName: partyName.trim() || undefined }, (response) => {
         if (response.success) {
           onCreated(response.cp);
         } else {
@@ -721,7 +725,7 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
         }
       });
     } else {
-      socket.createClubPenguin({ name: cpName.trim(), rooms: roomsObj }, (response) => {
+      socket.createClubPenguin({ name: cpName.trim(), rooms: roomsObj, spawnConfig }, (response) => {
         if (response.success) {
           onCreated(response.cp);
         } else {
@@ -729,6 +733,38 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
         }
       });
     }
+  }
+
+  function SpawnConfigEditor({ config, onChange, isRoomLevel }) {
+    const mode = config ? config.mode : (isRoomLevel ? null : 'fixed');
+    return (
+      <div style={styles.row}>
+        <label style={styles.label}>Spawn:</label>
+        <select
+          style={styles.select}
+          value={isRoomLevel && !config ? '' : mode}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (isRoomLevel && v === '') { onChange(null); return; }
+            if (v === 'fixed') onChange({ mode: 'fixed', x: 400, y: 350 });
+            else onChange({ mode: v });
+          }}
+        >
+          {isRoomLevel && <option value="">Use CP default</option>}
+          <option value="fixed">Fixed position</option>
+          <option value="random">Random</option>
+          <option value="opposite">Opposite of last room</option>
+        </select>
+        {config && config.mode === 'fixed' && (
+          <>
+            <label style={styles.label}>x</label>
+            <input style={styles.smallInput} type="number" min={0} max={800} value={config.x ?? 400} onChange={(e) => onChange({ ...config, x: Math.max(0, Math.min(800, Number(e.target.value))) })} />
+            <label style={styles.label}>y</label>
+            <input style={styles.smallInput} type="number" min={0} max={600} value={config.y ?? 350} onChange={(e) => onChange({ ...config, y: Math.max(0, Math.min(600, Number(e.target.value))) })} />
+          </>
+        )}
+      </div>
+    );
   }
 
   const sortedCatalog = sortedCatalogItems();
@@ -752,6 +788,10 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
           maxLength={40}
           autoFocus
         />
+      </div>
+
+      <div style={styles.field}>
+        <SpawnConfigEditor config={spawnConfig} onChange={setSpawnConfig} isRoomLevel={false} />
       </div>
 
       {rooms.map((room, ri) => (
@@ -806,6 +846,8 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
               </select>
             </div>
           )}
+
+          <SpawnConfigEditor config={room.spawnConfig} onChange={(sc) => updateRoom(ri, 'spawnConfig', sc)} isRoomLevel={true} />
 
           <div style={{ fontSize: '0.9rem', color: '#aaa' }}>Exits</div>
           {room.exits.map((exit, ei) => (
