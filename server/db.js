@@ -56,7 +56,9 @@ db.exec(`
     name TEXT NOT NULL,
     image TEXT NOT NULL,
     uploader_id TEXT,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    width INTEGER,
+    height INTEGER
   )
 `);
 
@@ -224,6 +226,39 @@ db.exec(`
 const cpCols2 = db.prepare("PRAGMA table_info(club_penguins)").all().map(c => c.name);
 if (!cpCols2.includes('spawn_config')) {
   db.exec("ALTER TABLE club_penguins ADD COLUMN spawn_config TEXT NOT NULL DEFAULT '{\"mode\":\"fixed\",\"x\":400,\"y\":350}'");
+}
+
+// Migration: add width/height to catalog_items and backfill from stored images
+const catCols = db.prepare("PRAGMA table_info(catalog_items)").all().map(c => c.name);
+if (!catCols.includes('width')) {
+  db.exec("ALTER TABLE catalog_items ADD COLUMN width INTEGER");
+  db.exec("ALTER TABLE catalog_items ADD COLUMN height INTEGER");
+  // Backfill dimensions from stored base64 images
+  const items = db.prepare("SELECT id, image FROM catalog_items").all();
+  const update = db.prepare("UPDATE catalog_items SET width = ?, height = ? WHERE id = ?");
+  for (const item of items) {
+    try {
+      const match = item.image.match(/^data:image\/\w+;base64,(.+)$/);
+      if (!match) continue;
+      const buf = Buffer.from(match[1], 'base64');
+      let w, h;
+      // PNG
+      if (buf[0] === 0x89 && buf[1] === 0x50) { w = buf.readUInt32BE(16); h = buf.readUInt32BE(20); }
+      // JPEG
+      else if (buf[0] === 0xFF && buf[1] === 0xD8) {
+        let off = 2;
+        while (off < buf.length - 8) {
+          if (buf[off] !== 0xFF) break;
+          const m = buf[off + 1];
+          if (m === 0xC0 || m === 0xC2) { w = buf.readUInt16BE(off + 7); h = buf.readUInt16BE(off + 5); break; }
+          off += 2 + buf.readUInt16BE(off + 2);
+        }
+      }
+      // GIF
+      else if (buf[0] === 0x47 && buf[1] === 0x49) { w = buf.readUInt16LE(6); h = buf.readUInt16LE(8); }
+      if (w && h) update.run(w, h, item.id);
+    } catch (e) { /* skip unparseable */ }
+  }
 }
 
 export default db;

@@ -520,6 +520,7 @@ export default function Catalog({ authToken, accountId, penguinName, attribution
                 )}
                 <img src={item.image} alt={item.name} style={styles.thumbnail} />
                 <div style={styles.itemName}>{item.name}</div>
+                {item.width && item.height && <div style={{ fontSize: '0.65rem', color: '#777' }}>{item.width}×{item.height}</div>}
                 {item.attribution && <div style={{ fontSize: '0.75rem', color: '#888' }}>by {item.attribution}</div>}
                 {item.price > 0 ? (
                   ownsItem(item) ? (

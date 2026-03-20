@@ -403,13 +403,18 @@ app.post('/api/catalog', async (req, res) => {
   if (catalogItemExistsByName(name.trim())) return res.status(409).json({ error: 'An item with that name already exists' });
 
   // Decode image to check pixel dimensions
+  let imgWidth = null, imgHeight = null;
   try {
     const base64Match = image.match(/^data:image\/\w+;base64,(.+)$/);
     if (base64Match) {
       const buf = Buffer.from(base64Match[1], 'base64');
       const dims = getImageDimensions(buf);
-      if (dims && (dims.width > 800 || dims.height > 600)) {
-        return res.status(400).json({ error: `Image dimensions too large (${dims.width}x${dims.height}). Maximum is 800x600.` });
+      if (dims) {
+        imgWidth = dims.width;
+        imgHeight = dims.height;
+        if (dims.width > 800 || dims.height > 600) {
+          return res.status(400).json({ error: `Image dimensions too large (${dims.width}x${dims.height}). Maximum is 800x600.` });
+        }
       }
     }
   } catch (e) {
@@ -440,7 +445,7 @@ app.post('/api/catalog', async (req, res) => {
     if (account) attr = account.attribution_name || account.username;
   }
 
-  const item = createCatalogItem(name.trim(), image, accountId, attr, itemPrice);
+  const item = createCatalogItem(name.trim(), image, accountId, attr, itemPrice, imgWidth, imgHeight);
   res.json(item);
 });
 
