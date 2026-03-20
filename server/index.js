@@ -13,6 +13,7 @@ import { createCatalogItem, getCatalogItem, listCatalogItems, catalogItemExistsB
 import { createGame, getGame, listGames, gameExistsByName } from './games.js';
 import { loadInventory, saveInventoryItem, setEquipped } from './inventory.js';
 import { moderateUpload } from './moderation.js';
+import { trackStart, getStats, getCPStats, resetStats } from './stats.js';
 import {
   isStripeEnabled, getBundles, createCheckoutSession, handleWebhook,
   getBalance, getTransactions, purchaseItem, canAccessItem, getPurchasedItems,
@@ -46,13 +47,16 @@ const app = express();
 
 // Geo-restriction: block countries with active Club Penguin trademarks
 app.use(async (req, res, next) => {
+  const done = trackStart('middleware:geoip');
   const ip = req.headers['fly-client-ip'] || req.ip;
   try {
     const geo = await geoip.lookup(ip);
     if (geo && BLOCKED_COUNTRIES.includes(geo.country)) {
+      done();
       return res.status(451).send('Club Penguin Builder is not available in your region due to trademark restrictions.');
     }
   } catch {}
+  done();
   next();
 });
 
@@ -75,6 +79,47 @@ app.use('/assets', express.static(join(__dirname, '..', 'dist', 'assets'), {
 app.use(express.static(join(__dirname, '..', 'dist')));
 
 let io;
+
+// Track all HTTP requests (lightweight — just count + time)
+app.use((req, res, next) => {
+  const done = trackStart('http:all');
+  res.on('finish', done);
+  next();
+});
+
+// CPU/time stats endpoint (sorted by total time descending)
+app.get('/api/admin/stats', (req, res) => {
+  const raw = getStats();
+  const sorted = Object.entries(raw)
+    .sort((a, b) => b[1].totalMs - a[1].totalMs)
+    .map(([name, s]) => ({ operation: name, ...s }));
+  const uptime = Math.round(process.uptime());
+  const mem = process.memoryUsage();
+  // Per-CP breakdown sorted by total time, with names
+  const rawCP = getCPStats();
+  const cpBreakdown = Object.entries(rawCP)
+    .sort((a, b) => b[1].totalMs - a[1].totalMs)
+    .map(([cpId, data]) => {
+      const cp = getClubPenguin(cpId);
+      return { cpId, name: cp ? cp.name : '(deleted)', ...data };
+    });
+
+  res.json({
+    uptimeSeconds: uptime,
+    memoryMB: {
+      rss: Math.round(mem.rss / 1024 / 1024),
+      heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+    },
+    operations: sorted,
+    clubPenguins: cpBreakdown,
+  });
+});
+
+app.post('/api/admin/stats/reset', (req, res) => {
+  resetStats();
+  res.json({ ok: true });
+});
 
 // Auth endpoints
 app.post('/api/auth/register', async (req, res) => {
@@ -377,9 +422,10 @@ app.get('/api/catalog/:id', (req, res) => {
 });
 
 app.post('/api/catalog', async (req, res) => {
+  const done = trackStart('http:POST /api/catalog');
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   const accountId = getSession(token);
-  if (!accountId) return res.status(401).json({ error: 'You must be logged in to upload items' });
+  if (!accountId) { done(); return res.status(401).json({ error: 'You must be logged in to upload items' }); }
 
   // Check upload ban
   const banExpiry = uploadBans.get(accountId);
@@ -446,6 +492,7 @@ app.post('/api/catalog', async (req, res) => {
   }
 
   const item = createCatalogItem(name.trim(), image, accountId, attr, itemPrice, imgWidth, imgHeight);
+  done();
   res.json(item);
 });
 
@@ -860,8 +907,9 @@ io.on('connection', (socket) => {
   chatRateLimits.set(socket.id, []);
 
   socket.on('join', ({ name, cpId, token }) => {
+    const done = trackStart('socket:join', cpId);
     const cp = getClubPenguin(cpId);
-    if (!cp) return;
+    if (!cp) { done(); return; }
 
     // If authenticated, use account username
     let accountId = null;
@@ -925,6 +973,7 @@ io.on('connection', (socket) => {
 
     broadcastToCPRoom(cpId, penguin.roomId, 'penguinJoined', penguin, socket.id);
     io.emit('clubPenguinUpdated', cpSummary(cpId));
+    done();
   });
 
   socket.on('move', ({ x, y }) => {
@@ -933,6 +982,7 @@ io.on('connection', (socket) => {
     y = Math.max(0, Math.min(600, y));
     const penguin = getPenguin(socket.id);
     if (!penguin) return;
+    const done = trackStart('socket:move', penguin.cpId);
 
     const cp = getClubPenguin(penguin.cpId);
     if (cp) {
@@ -1053,6 +1103,7 @@ io.on('connection', (socket) => {
       x,
       y,
     }, socket.id);
+    done();
   });
 
   socket.on('chat', (message) => {
@@ -1080,6 +1131,7 @@ io.on('connection', (socket) => {
   socket.on('changeRoom', (roomId) => {
     const penguin = getPenguin(socket.id);
     if (!penguin) return;
+    const done = trackStart('socket:changeRoom', penguin.cpId);
 
     const cp = getClubPenguin(penguin.cpId);
     if (!cp || !cp.rooms[roomId]) return;
@@ -1111,6 +1163,7 @@ io.on('connection', (socket) => {
     });
 
     broadcastToCPRoom(penguin.cpId, roomId, 'penguinJoined', penguin, socket.id);
+    done();
   });
 
   socket.on('collectItem', ({ catalogId, wearOffsetX, wearOffsetY, wearWidth, wearHeight }) => {
@@ -1234,6 +1287,7 @@ io.on('connection', (socket) => {
   socket.on('dragMove', ({ itemIndex, x, y }) => {
     const penguin = getPenguin(socket.id);
     if (!penguin) return;
+    const done = trackStart('socket:dragMove', penguin.cpId);
     const cp = getClubPenguin(penguin.cpId);
     if (!cp) return;
     const room = cp.rooms[penguin.roomId];
@@ -1272,6 +1326,7 @@ io.on('connection', (socket) => {
     broadcastToCPRoom(penguin.cpId, penguin.roomId, 'itemDragMoved', {
       itemIndex, x, y,
     }, socket.id);
+    done();
   });
 
   socket.on('dragEnd', ({ itemIndex }) => {
