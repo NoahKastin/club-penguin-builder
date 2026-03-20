@@ -218,8 +218,9 @@ function RoomPreview({ room, catalogItems, games }) {
                   height: item.height * scale,
                   transform: rot ? `rotate(${rot}deg)` : undefined,
                   objectFit: 'fill',
-                  border: item.behavior === 'collectible' ? '2px solid white' : item.behavior?.startsWith('draggable') ? '2px solid black' : item.blocksMovement ? '2px dashed red' : 'none',
+                  border: !item.behavior && item.blocksMovement ? '2px dashed red' : 'none',
                   outline: item.blocksMovement && item.behavior ? '2px dashed red' : 'none',
+                  filter: item.behavior === 'collectible' ? 'drop-shadow(0 0 4px white) drop-shadow(0 0 4px white)' : item.behavior?.startsWith('draggable') ? 'drop-shadow(0 0 4px black) drop-shadow(0 0 4px black)' : 'none',
                   pointerEvents: 'none',
                 }}
               />
