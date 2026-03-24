@@ -3,7 +3,6 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import geoip from 'fast-geoip';
 import { adjustMoveTarget, lineRectIntersection, simulateSkid, simulateGravity } from '../shared/collision.js';
 import db from './db.js';
 import { getClubPenguin, createClubPenguin, updateClubPenguin, updateRoomItemPosition, listClubPenguins } from './clubPenguins.js';
@@ -46,17 +45,12 @@ const BLOCKED_COUNTRIES = ['CA', 'GB'];
 const app = express();
 
 // Geo-restriction: block countries with active Club Penguin trademarks
-app.use(async (req, res, next) => {
-  const done = trackStart('middleware:geoip');
-  const ip = req.headers['fly-client-ip'] || req.ip;
-  try {
-    const geo = await geoip.lookup(ip);
-    if (geo && BLOCKED_COUNTRIES.includes(geo.country)) {
-      done();
-      return res.status(451).send('Club Penguin Builder is not available in your region due to trademark restrictions.');
-    }
-  } catch {}
-  done();
+// Uses Fly.io's Fly-Client-Country header (free, no lookup needed); skips in local dev
+app.use((req, res, next) => {
+  const country = req.headers['fly-client-country'];
+  if (country && BLOCKED_COUNTRIES.includes(country)) {
+    return res.status(451).send('Club Penguin Builder is not available in your region due to trademark restrictions.');
+  }
   next();
 });
 
