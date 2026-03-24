@@ -261,4 +261,32 @@ if (!catCols.includes('width')) {
   }
 }
 
+// Stats persistence tables
+db.exec(`
+  CREATE TABLE IF NOT EXISTS stats_operations (
+    operation TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 0,
+    total_ms REAL NOT NULL DEFAULT 0,
+    max_ms REAL NOT NULL DEFAULT 0
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS stats_cp_operations (
+    cp_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    total_ms REAL NOT NULL DEFAULT 0,
+    max_ms REAL NOT NULL DEFAULT 0,
+    UNIQUE(cp_id, operation)
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS stats_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )
+`);
+
 export default db;

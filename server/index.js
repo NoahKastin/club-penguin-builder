@@ -13,7 +13,7 @@ import { createCatalogItem, getCatalogItem, listCatalogItems, catalogItemExistsB
 import { createGame, getGame, listGames, gameExistsByName } from './games.js';
 import { loadInventory, saveInventoryItem, setEquipped } from './inventory.js';
 import { moderateUpload } from './moderation.js';
-import { trackStart, getStats, getCPStats, resetStats } from './stats.js';
+import { trackStart, getStats, getCPStats, getStatsSince, resetStats } from './stats.js';
 import {
   isStripeEnabled, getBundles, createCheckoutSession, handleWebhook,
   getBalance, getTransactions, purchaseItem, canAccessItem, getPurchasedItems,
@@ -105,6 +105,7 @@ app.get('/api/admin/stats', (req, res) => {
     });
 
   res.json({
+    sinceTimestamp: getStatsSince(),
     uptimeSeconds: uptime,
     memoryMB: {
       rss: Math.round(mem.rss / 1024 / 1024),
