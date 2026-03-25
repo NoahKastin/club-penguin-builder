@@ -93,8 +93,9 @@ export default class RoomScene extends Phaser.Scene {
         }
       }
 
-      // Check collectible items
-      for (const item of this.itemZones) {
+      // Check collectible items (reverse order so topmost/last-added wins)
+      for (let i = this.itemZones.length - 1; i >= 0; i--) {
+        const item = this.itemZones[i];
         if (item.behavior !== 'collectible') continue;
         if (
           pointer.x >= item.x && pointer.x <= item.x + item.w &&
