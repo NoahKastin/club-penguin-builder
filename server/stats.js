@@ -33,22 +33,16 @@ const setMeta = db.prepare(`
   ON CONFLICT(key) DO UPDATE SET value = excluded.value
 `);
 
-// --- Load persisted stats on startup ---
-function loadFromDB() {
-  for (const row of db.prepare('SELECT * FROM stats_operations').all()) {
-    stats.set(row.operation, { count: row.count, totalMs: row.total_ms, maxMs: row.max_ms });
-  }
-  for (const row of db.prepare('SELECT * FROM stats_cp_operations').all()) {
-    if (!cpStats.has(row.cp_id)) cpStats.set(row.cp_id, new Map());
-    cpStats.get(row.cp_id).set(row.operation, { count: row.count, totalMs: row.total_ms, maxMs: row.max_ms });
-  }
-  // Initialize "since" timestamp if not set
-  if (!getMeta.get('since')) {
-    setMeta.run('since', String(Date.now()));
-  }
+// Initialize "since" timestamp if not set
+if (!getMeta.get('since')) {
+  setMeta.run('since', String(Date.now()));
 }
 
-loadFromDB();
+// One-time reset: stats were corrupted by loadFromDB bug that double-counted
+// on every flush cycle. Safe to remove this block after one deploy.
+db.prepare('DELETE FROM stats_operations').run();
+db.prepare('DELETE FROM stats_cp_operations').run();
+setMeta.run('since', String(Date.now()));
 
 // --- Flush in-memory deltas to DB ---
 // We accumulate in-memory, then flush deltas to DB and clear in-memory maps.
