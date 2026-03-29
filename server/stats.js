@@ -38,12 +38,6 @@ if (!getMeta.get('since')) {
   setMeta.run('since', String(Date.now()));
 }
 
-// One-time reset: stats were corrupted by loadFromDB bug that double-counted
-// on every flush cycle. Safe to remove this block after one deploy.
-db.prepare('DELETE FROM stats_operations').run();
-db.prepare('DELETE FROM stats_cp_operations').run();
-setMeta.run('since', String(Date.now()));
-
 // --- Flush in-memory deltas to DB ---
 // We accumulate in-memory, then flush deltas to DB and clear in-memory maps.
 const flushToDB = db.transaction(() => {
