@@ -352,7 +352,7 @@ export default function MainMenu({ penguinName, authToken, accountId, attributio
           </div>
           <div>
             <strong>Is this legal?</strong>
-            <div style={{ color: '#ccc' }}>Yes. The original Club Penguin was shut down by Disney in 2017 and the trademark is not active in most regions. This is an independent, open-source platform for building new Club Penguin-style games; it does not copy or distribute any Disney assets.</div>
+            <div style={{ color: '#ccc' }}>Yes. The original Club Penguin was shut down by Disney in 2017, and both the "Club Penguin" and "Puffle" trademarks are inactive in the US. This is an independent, open-source platform for building new Club Penguin-style games with original, user-created art. You are free to name items using terms like "puffle" or "Club Penguin." However, the original game's art assets are still protected by copyright — uploading sprites or images ripped from the original game is not allowed, and uploads are checked by AI moderation.</div>
           </div>
           <div>
             <strong>What is a "party"?</strong>

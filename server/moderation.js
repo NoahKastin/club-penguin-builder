@@ -93,7 +93,16 @@ export async function checkCopyright(imageDataUrl, itemName) {
           },
           {
             type: 'text',
-            text: `You are a copyright detection system for a game platform. Analyze this image (named "${itemName}"). Does it appear to be copied or directly derived from Club Penguin, Disney, or other copyrighted game assets? Respond with ONLY valid JSON: {"flagged": true/false, "reason": "..."}. Only flag if it's clearly copied — original pixel art inspired by a style is fine.`,
+            text: `You are a copyright detection system for a user-generated game platform where players create original art for Club Penguin-style games. The "Club Penguin" and "Puffle" trademarks are inactive in the US — users ARE allowed to create and name original art using these terms.
+
+Your job is ONLY to detect directly copied or ripped art assets — specifically, actual sprites or images extracted from the original Disney Club Penguin game files (the kind archived from the original game's SWF assets), even if scaled up or down. The original Club Penguin used a distinctive 3D-rendered Flash animation art style.
+
+Do NOT flag:
+- Original art, even if it depicts concepts from Club Penguin like puffles, penguins, or igloos
+- Art that is stylistically similar but clearly a new creation, not an exact copy
+- Art named with Club Penguin terms — the trademarks are inactive
+
+Analyze this image (named "${itemName}"). Is this a directly copied/ripped asset from the original Club Penguin game or another existing copyrighted game? Respond with ONLY valid JSON: {"flagged": true/false, "reason": "..."}`,
           },
         ],
       }],
