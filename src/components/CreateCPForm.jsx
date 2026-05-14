@@ -674,11 +674,6 @@ export default function CreateCPForm({ editCpId, authToken, accountId, onCreated
       setError('Club Penguin name is required');
       return;
     }
-    if (rooms.some(r => !r.name.trim())) {
-      setError('All rooms need a name');
-      return;
-    }
-
     if (rooms.every(r => r.hidden)) {
       setError('At least one room must not be hidden');
       return;

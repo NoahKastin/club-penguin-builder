@@ -28,11 +28,13 @@ const styles = {
 export default function PlayerList() {
   const [players, setPlayers] = useState([]);
   const [localId, setLocalId] = useState(null);
+  const [roomName, setRoomName] = useState('');
 
   useEffect(() => {
     function onRoomState(data) {
       setLocalId(data.you);
       setPlayers(data.penguins.map(p => ({ id: p.id, name: p.name })));
+      setRoomName(data.room?.name?.trim() || '');
     }
     function onJoined(data) {
       setPlayers(prev => {
@@ -57,7 +59,7 @@ export default function PlayerList() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>Who's here ({players.length})</div>
+      <div style={styles.header}>Who's in {roomName || 'here'} ({players.length})</div>
       <div style={styles.list}>
         {players.map(p => (
           <span key={p.id} style={p.id === localId ? styles.you : undefined}>
